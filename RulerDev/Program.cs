@@ -19,30 +19,31 @@ var users = new List<User> {
 
 //users.Dump();
 
-var filterPolicy = new FilterPolicy (
-    "DHS or OHA",
-    new string[] {}, // Can't do anything with this yet
-
-    new List<(string, string)>{
-        ("agency", "ODHSOHA")
-        ,("agency", "ODHS")
-        ,("agency", "OHA")
+var filterPolicy = new FilterPolicy
+{
+    name = "DHS or OHA",
+    properties = new string[] { }, // Can't do anything with this yet
+    scope = new List<(string, string)>
+    {
+        ("agency", "ODHSOHA"), ("agency", "ODHS"), ("agency", "OHA")
     },
-    FilterPolicyExtensions.RuleOperator.Or
-);
+    ruleOperator = FilterPolicyExtensions.RuleOperator.Or
+};
 var filterExpression = filterPolicy.GetFilterExpression<User>();
 filterPolicy.Dump(filterPolicy.name);
 users.Where(filterExpression).Dump($"{filterPolicy.name} operator {filterPolicy.ruleOperator}");
 
 
 
-filterPolicy = new FilterPolicy(
-    "All DAS Brians",
-    new string[] { }, // Can't do anything with this yet
-    new List<(string, string)>{
-            ("first", "Brian")
-            ,("agency", "DAS")
-    });
+filterPolicy = new FilterPolicy
+{
+    name = "All DAS Brians",
+    properties = new string[] { }, // Can't do anything with this yet
+    scope = new List<(string, string)>
+    {
+        ("first", "Brian"), ("agency", "DAS")
+    }
+};
 filterExpression = filterPolicy.GetFilterExpression<User>();
 filterPolicy.Dump(filterPolicy.name);
 users.Where(filterExpression).Dump($"operator {filterPolicy.ruleOperator}");
