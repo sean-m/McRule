@@ -1,16 +1,16 @@
 ﻿
-using System.Linq;
 using System.Linq.Expressions;
 
 namespace Ruler;
 
-
-public record FilterPolicy(
-	string name, 
-	string[] properties, 
-	IEnumerable<(string, string)> scope, 
-	FilterPolicyExtensions.RuleOperator ruleOperator=FilterPolicyExtensions.RuleOperator.And
-	);
+public class FilterPolicy
+{
+    public Guid id { get; set; } = Guid.NewGuid(); 
+    public string name { get; set; }
+    public string[] properties { get; set; }
+    public IEnumerable<(string, string)> scope { get; set; }
+    public FilterPolicyExtensions.RuleOperator ruleOperator { get; set; } = FilterPolicyExtensions.RuleOperator.And;
+}
 
 // Taken from LinqKit, Joseph Albahari. Man is a legend.
 // LINQKit Copyright (c) 2007-2009 Joseph Albahari, Tomas Petricek
@@ -37,136 +37,153 @@ public record FilterPolicy(
 
 public static class PredicateBuilder
 {
-	public static Expression<Func<T, bool>> True<T>() { return f => true; }
-	public static Expression<Func<T, bool>> False<T>() { return f => false; }
+    public static Expression<Func<T, bool>> True<T>()
+    {
+        return f => true;
+    }
 
-	public static Expression<Func<T, bool>> Or<T>(this Expression<Func<T, bool>> expr1,
-														Expression<Func<T, bool>> expr2)
-	{
-		var invokedExpr = Expression.Invoke(expr2, expr1.Parameters.Cast<Expression>());
-		return Expression.Lambda<Func<T, bool>>
-			  (Expression.OrElse(expr1.Body, invokedExpr), expr1.Parameters);
-	}
+    public static Expression<Func<T, bool>> False<T>()
+    {
+        return f => false;
+    }
 
-	public static Expression<Func<T, bool>> And<T>(this Expression<Func<T, bool>> expr1,
-														 Expression<Func<T, bool>> expr2)
-	{
-		var invokedExpr = Expression.Invoke(expr2, expr1.Parameters.Cast<Expression>());
-		return Expression.Lambda<Func<T, bool>>
-			  (Expression.AndAlso(expr1.Body, invokedExpr), expr1.Parameters);
-	}
+    public static Expression<Func<T, bool>> Or<T>(this Expression<Func<T, bool>> expr1,
+        Expression<Func<T, bool>> expr2)
+    {
+        var invokedExpr = Expression.Invoke(expr2, expr1.Parameters.Cast<Expression>());
+        return Expression.Lambda<Func<T, bool>>
+            (Expression.OrElse(expr1.Body, invokedExpr), expr1.Parameters);
+    }
+
+    public static Expression<Func<T, bool>> And<T>(this Expression<Func<T, bool>> expr1,
+        Expression<Func<T, bool>> expr2)
+    {
+        var invokedExpr = Expression.Invoke(expr2, expr1.Parameters.Cast<Expression>());
+        return Expression.Lambda<Func<T, bool>>
+            (Expression.AndAlso(expr1.Body, invokedExpr), expr1.Parameters);
+    }
 }
 
 
 public static class FilterPolicyExtensions
-{ 
-    public enum RuleOperator { 
-        And, 
-        Or 
-    } 
+{
+    public enum RuleOperator
+    {
+        And,
+        Or
+    }
 
-    public static Expression<Func<T, bool>> AddFilterToStringProperty<T>( 
-                            Expression<Func<T, string>> expression, string filter, string filterType) 
-    { 
+    public static Expression<Func<T, bool>> AddFilterToStringProperty<T>(
+        Expression<Func<T, string>> expression, string filter, string filterType)
+    {
 
-#if DEBUG 
-        if (!(filterType == "StartsWith" || filterType == "EndsWith" || filterType == "Contains")) 
-        { 
-            throw new Exception($"filterType must equal StartsWith, EndsWith or Contains. Passed {filterType}"); 
-        } 
+#if DEBUG
+        if (!(filterType == "StartsWith" || filterType == "EndsWith" || filterType == "Contains"))
+        {
+            throw new Exception($"filterType must equal StartsWith, EndsWith or Contains. Passed {filterType}");
+        }
 
 #endif
         // Check that the property isn't null, otherwise we'd hit null object exceptions at runtime
-        var notNull = Expression.NotEqual(expression.Body,Expression.Constant(null)); 
-         
+        var notNull = Expression.NotEqual(expression.Body, Expression.Constant(null));
+
         // Setup calls to EtartsWith, EndsWith, or Contains
         // TODO expressionArgs was used to pass multiple values for case insensitive compare, wasn't
         // mapping the method correctly when used with EF so need to revisit that
-        var expressionArgs = new Expression[] {Expression.Constant(filter)}; 
-        var strPredicate = Expression.Call(expression.Body, filterType, null, expressionArgs); 
+        var expressionArgs = new Expression[] { Expression.Constant(filter) };
+        var strPredicate = Expression.Call(expression.Body, filterType, null, expressionArgs);
 
-        var filterExpression = Expression.AndAlso(notNull, strPredicate); 
+        var filterExpression = Expression.AndAlso(notNull, strPredicate);
 
-        return Expression.Lambda<Func<T, bool>>( 
-            filterExpression, 
-            expression.Parameters); 
-    } 
+        return Expression.Lambda<Func<T, bool>>(
+            filterExpression,
+            expression.Parameters);
+    }
 
     // Dynamically build an expression suitable for filtering in a Where clause
-    public static Expression<Func<T, bool>> GetFilterForType<T>(string property, string value) 
-    { 
-        var parameter = Expression.Parameter(typeof(T), "x"); 
-        var opLeft = Expression.Property(parameter, property); 
-        var opRight = Expression.Constant(value); 
-        var comparison = Expression.Equal(opLeft, opRight); 
+    public static Expression<Func<T, bool>> GetFilterForType<T>(string property, string value)
+    {
+        var parameter = Expression.Parameter(typeof(T), "x");
+        var opLeft = Expression.Property(parameter, property);
+        var opRight = Expression.Constant(value);
+        var comparison = Expression.Equal(opLeft, opRight);
 
         // For string comparisons using wildcards, trim the wildcard characters and pass to the comparison method
-        if (opLeft.Type == typeof(string)) { 
+        if (opLeft.Type == typeof(string))
+        {
             // Grab the object property for use in the inner expression body
-            var strParam = Expression.Lambda<Func<T,string>>(opLeft, parameter); 
-             
-            if (value.StartsWith("*") && value.EndsWith("*")) { 
-                return AddFilterToStringProperty<T>(strParam, value.Trim('*'), "Contains"); 
-            } else if (value.StartsWith("*")) { 
-                return AddFilterToStringProperty<T>(strParam, value.TrimStart('*'), "EndsWith"); 
-            } else if (value.EndsWith("*")) { 
-                return AddFilterToStringProperty<T>(strParam, value.TrimEnd('*'), "StartsWith"); 
-            } else { 
-                return Expression.Lambda<Func<T, bool>>(comparison, parameter); 
-            } 
-        } 
-         
-        return Expression.Lambda<Func<T, bool>>(comparison, parameter); 
-    } 
+            var strParam = Expression.Lambda<Func<T, string>>(opLeft, parameter);
+
+            if (value.StartsWith("*") && value.EndsWith("*"))
+            {
+                return AddFilterToStringProperty<T>(strParam, value.Trim('*'), "Contains");
+            }
+            else if (value.StartsWith("*"))
+            {
+                return AddFilterToStringProperty<T>(strParam, value.TrimStart('*'), "EndsWith");
+            }
+            else if (value.EndsWith("*"))
+            {
+                return AddFilterToStringProperty<T>(strParam, value.TrimEnd('*'), "StartsWith");
+            }
+            else
+            {
+                return Expression.Lambda<Func<T, bool>>(comparison, parameter);
+            }
+        }
+
+        return Expression.Lambda<Func<T, bool>>(comparison, parameter);
+    }
 
     // Combine a list of expressions inclusively
-    public static Expression<Func<T, bool>>? CombineAnd<T>(IEnumerable<Expression<Func<T, bool>>> predicates) 
-    { 
-        if (predicates.Count() == 0) return null; 
+    public static Expression<Func<T, bool>>? CombineAnd<T>(IEnumerable<Expression<Func<T, bool>>> predicates)
+    {
+        if (predicates.Count() == 0) return null;
 
-        var final = predicates.First(); 
-        foreach (var next in predicates.Skip(1)) 
-            final = PredicateBuilder.And(final, next); 
-     
-        return final; 
-    } 
+        var final = predicates.First();
+        foreach (var next in predicates.Skip(1))
+            final = PredicateBuilder.And(final, next);
+
+        return final;
+    }
 
 
     // Combine a list of expressions inclusively
-    public static Expression<Func<T, bool>>? CombineOr<T>(IEnumerable<Expression<Func<T, bool>>> predicates) 
-    { 
-        if (predicates.Count() == 0) return null; 
+    public static Expression<Func<T, bool>>? CombineOr<T>(IEnumerable<Expression<Func<T, bool>>> predicates)
+    {
+        if (predicates.Count() == 0) return null;
 
-        var final = predicates.First(); 
-        foreach (var next in predicates.Skip(1)) 
-            final = PredicateBuilder.Or(final, next); 
+        var final = predicates.First();
+        foreach (var next in predicates.Skip(1))
+            final = PredicateBuilder.Or(final, next);
 
-        return final; 
-    } 
+        return final;
+    }
 
 
     // Combine a list of expressions inclusively
     public static Expression<Func<T, bool>>? CombinePredicates<T>(IEnumerable<Expression<Func<T, bool>>> predicates,
-        FilterPolicyExtensions.RuleOperator op) 
-    { 
-        if (predicates.Count() == 0) return null; 
+        FilterPolicyExtensions.RuleOperator op)
+    {
+        if (predicates.Count() == 0) return null;
 
-        if (op == RuleOperator.And) 
-        { 
-            return CombineAnd(predicates); 
-        } 
-        return CombineOr(predicates); 
-    } 
+        if (op == RuleOperator.And)
+        {
+            return CombineAnd(predicates);
+        }
+
+        return CombineOr(predicates);
+    }
 
 
-    public static Expression<Func<T, bool>>? GetFilterExpression<T>(this FilterPolicy policy) 
-    { 
-        var predicates = new List<Expression<Func<T, bool>>>(); 
-        foreach (var constraints in policy.scope) 
-        { 
-            predicates.Add(GetFilterForType<T>(constraints.Item1, constraints.Item2)); 
-        } 
-         
-        return CombinePredicates<T>(predicates, policy.ruleOperator); 
-    } 
+    public static Expression<Func<T, bool>>? GetFilterExpression<T>(this FilterPolicy policy)
+    {
+        var predicates = new List<Expression<Func<T, bool>>>();
+        foreach (var constraints in policy.scope)
+        {
+            predicates.Add(GetFilterForType<T>(constraints.Item1, constraints.Item2));
+        }
+
+        return CombinePredicates<T>(predicates, policy.ruleOperator);
+    }
 }
