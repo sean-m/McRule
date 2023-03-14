@@ -50,10 +50,10 @@ users.Where(filterExpression).Dump($"operator {filterPolicy.ruleOperator}");
 
 
 
-var dynamicFilterDAS = FilterPolicyExtensions.GetFilterForType<User>("agency", "DAS");
+var dynamicFilterDAS = FilterPolicyExtensions.GetFilterExpressionForType<User>("agency", "DAS");
 users.Where(dynamicFilterDAS).Dump("DAS users");
 
-var dynamicFilterBrian = FilterPolicyExtensions.GetFilterForType<User>("first","Brian");
+var dynamicFilterBrian = FilterPolicyExtensions.GetFilterExpressionForType<User>("first","Brian");
 
 var policies = new List<Expression<Func<User,bool>>>();
 policies.Add(dynamicFilterDAS);
