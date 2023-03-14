@@ -23,9 +23,11 @@ var filterPolicy = new FilterPolicy
 {
     name = "DHS or OHA",
     properties = new string[] { }, // Can't do anything with this yet
-    scope = new List<(string, string)>
+    scope = new List<(string, string, string)>
     {
-        ("agency", "ODHSOHA"), ("agency", "ODHS"), ("agency", "OHA")
+        ("User", "agency", "ODHSOHA"),
+        ("User", "agency", "ODHS"),
+        ("User", "agency", "OHA")
     },
     ruleOperator = FilterPolicyExtensions.RuleOperator.Or
 };
@@ -39,9 +41,10 @@ filterPolicy = new FilterPolicy
 {
     name = "All DAS Brians",
     properties = new string[] { }, // Can't do anything with this yet
-    scope = new List<(string, string)>
+    scope = new List<(string, string, string)>
     {
-        ("first", "Brian"), ("agency", "DAS")
+        ("User", "first", "Brian"), 
+        ("User", "agency", "DAS")
     }
 };
 filterExpression = filterPolicy.GetFilterExpression<User>();

@@ -4,14 +4,25 @@ using System.Text.RegularExpressions;
 
 namespace Ruler;
 
-public class FilterPolicy
-{
-    public Guid id { get; set; } = Guid.NewGuid(); 
-    public string name { get; set; }
-    public string[] properties { get; set; }
-    public IEnumerable<(string, string)> scope { get; set; }
-    public FilterPolicyExtensions.RuleOperator ruleOperator { get; set; } = FilterPolicyExtensions.RuleOperator.And;
-}
+
+public class FilterPolicy : FilterRule
+{ 
+    public string name { get; set; } 
+    public string[] properties { get; set; } 
+
+    public string GetFilterString<T>() { 
+        return this.GetFilterExpression<T>()?.ToString() ?? String.Empty; 
+    } 
+} 
+
+public class FilterRule
+{ 
+    public Guid id { get; set;} = Guid.NewGuid(); 
+    public string appliesToType { get; set; } 
+    public IEnumerable<(string, string, string)> scope { get; set; } 
+    public FilterRule innerRule { get; set; } 
+    public FilterPolicyExtensions.RuleOperator ruleOperator { get; set; } = FilterPolicyExtensions.RuleOperator.And; 
+} 
 
 public static class FilterPolicyExtensions
 { 
@@ -88,23 +99,6 @@ public static class FilterPolicyExtensions
         var opRight = Expression.Constant(value); 
         Expression? comparison = null; 
 
-        // For string comparisons using wildcards, trim the wildcard characters and pass to the comparison method
-        if (opLeft.Type == typeof(string)) { 
-            // Grab the object property for use in the inner expression body
-            var strParam = Expression.Lambda<Func<T,string>>(opLeft, parameter); 
-             
-            if (value.StartsWith("*") && value.EndsWith("*")) { 
-                return AddFilterToStringProperty<T>(strParam, value.Trim('*'), "Contains"); 
-            } else if (value.StartsWith("*")) { 
-                return AddFilterToStringProperty<T>(strParam, value.TrimStart('*'), "EndsWith"); 
-            } else if (value.EndsWith("*")) { 
-                return AddFilterToStringProperty<T>(strParam, value.TrimEnd('*'), "StartsWith"); 
-            } else { 
-                comparison = Expression.Equal(opLeft, opRight); 
-                return Expression.Lambda<Func<T, bool>>(comparison, parameter); 
-            } 
-        } 
-
         // For IComparable types on the left hand side, attempt to parse the right hand side
         // into the same type and use <,>,<=,>=,= prefixes to infer BinaryExpression type.
         // Should work with numerical or datetime values provided they parse correctly.
@@ -120,9 +114,26 @@ public static class FilterPolicyExtensions
             // supplied type was indeed a nullable type.
             if (lType != null) 
                 isNullable = true; 
-                interfaceType = lType.GetInterface("IComparable"); 
+            interfaceType = lType.GetInterface("IComparable"); 
         } 
-         
+
+        // For string comparisons using wildcards, trim the wildcard characters and pass to the comparison method
+        if (lType == typeof(string)) { 
+            // Grab the object property for use in the inner expression body
+            var strParam = Expression.Lambda<Func<T,string>>(opLeft, parameter); 
+             
+            if (value.StartsWith("*") && value.EndsWith("*")) { 
+                return AddFilterToStringProperty<T>(strParam, value.Trim('*'), "Contains"); 
+            } else if (value.StartsWith("*")) { 
+                return AddFilterToStringProperty<T>(strParam, value.TrimStart('*'), "EndsWith"); 
+            } else if (value.EndsWith("*")) { 
+                return AddFilterToStringProperty<T>(strParam, value.TrimEnd('*'), "StartsWith"); 
+            } else { 
+                comparison = Expression.Equal(opLeft, opRight); 
+                return Expression.Lambda<Func<T, bool>>(comparison, parameter); 
+            } 
+        } 
+
         if (interfaceType == typeof(IComparable)) 
         { 
             var operatorPrefix = Regex.Match(value.Trim(), @"^[!<>=]+"); 
@@ -137,7 +148,8 @@ public static class FilterPolicyExtensions
                 var opRightNumerical = parseMethod?.Invoke(null, new string[] { operand }); 
 
                 opRight = Expression.Constant(opRightNumerical); 
-                comparison = GetComparer(operatorPrefix.Value.Trim(), Expression.Convert(opLeft, lType), opRight); 
+                Expression opLeftFinal = isNullable ? Expression.Convert(opLeft, lType) : opLeft; 
+                comparison = GetComparer(operatorPrefix.Value.Trim(), opLeftFinal, opRight); 
             } 
         } else { 
             comparison = Expression.Equal(opLeft, opRight);     
@@ -147,8 +159,9 @@ public static class FilterPolicyExtensions
         // expression for it so just defer to a false literal. 
         Expression<Func<T, bool>> falsePredicate = x => false; 
         comparison = comparison == null ? falsePredicate : comparison; 
-        comparison = (isNullable) ? AddNullCheck<T>(opLeft, comparison) : comparison; 
-         
+        if (isNullable) { 
+            comparison = AddNullCheck<T>(opLeft, comparison); 
+        } 
          
         return Expression.Lambda<Func<T, bool>>(comparison ?? Expression.Equal(opLeft, opRight), parameter); 
     } 
@@ -178,6 +191,16 @@ public static class FilterPolicyExtensions
         return final; 
     } 
 
+    // Combine a list of expressions inclusively
+    public static Expression<Func<T, bool>>? CombinePredicates<T>(Expression<Func<T, bool>> first, Expression<Func<T, bool>> second, FilterPolicyExtensions.RuleOperator op) 
+    { 
+        var predicates = new List<Expression<Func<T, bool>>> { first, second }.Where(x => x != null); 
+        if (op == RuleOperator.And) 
+        { 
+            return CombineAnd(predicates); 
+        } 
+        return CombineOr(predicates); 
+    } 
 
     // Combine a list of expressions inclusively
     public static Expression<Func<T, bool>>? CombinePredicates<T>(IEnumerable<Expression<Func<T, bool>>> predicates, FilterPolicyExtensions.RuleOperator op) 
@@ -191,15 +214,37 @@ public static class FilterPolicyExtensions
         return CombineOr(predicates); 
     } 
 
-
-    public static Expression<Func<T, bool>> GetFilterExpression<T>(this FilterPolicy policy) 
+    public static Expression<Func<T, bool>>? GetFilterExpression<T>(this FilterRule policy) 
     { 
-        var predicates = new List<Expression<Func<T, bool>>>(); 
-        foreach (var constraints in policy.scope) 
-        { 
-            predicates.Add(GetFilterExpressionForType<T>(constraints.Item1, constraints.Item2)); 
+        if (policy == null) {  
+            return null;  
         } 
          
-        return CombinePredicates<T>(predicates, policy.ruleOperator); 
+        Expression<Func<T, bool>> truePredicate = x => true; 
+        Expression<Func<T, bool>> falsePredicate = x => false; 
+         
+        var predicates = new List<Expression<Func<T, bool>>>(); 
+        foreach (var constraints in policy.scope.Where(x => x.Item1 != null)) 
+        { 
+            if (!(typeof(T).Name.Equals(constraints.Item1, StringComparison.CurrentCultureIgnoreCase))) 
+            { 
+                continue; 
+            } 
+            predicates.Add(GetFilterExpressionForType<T>(constraints.Item2, constraints.Item3)); 
+        } 
+
+        var first = CombinePredicates<T>(predicates, policy.ruleOperator); 
+        var second = policy.innerRule?.GetFilterExpression<T>(); 
+
+
+
+        if (first == null && second == null) 
+        { 
+            System.Diagnostics.Debug.WriteLine($"No predicates available for type: <{typeof(T).Name}> in policy: {policy.id}"); 
+            return falsePredicate; 
+        } 
+        else if (first != null && second == null) return first; 
+        else if (first == null && second != null) return second; 
+        else return CombinePredicates<T>(first, second, policy.ruleOperator); 
     } 
 }
