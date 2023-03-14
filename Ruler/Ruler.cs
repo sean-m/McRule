@@ -4,7 +4,6 @@ using System.Text.RegularExpressions;
 
 namespace Ruler;
 
-
 public class FilterPolicy : FilterRule
 { 
     public string name { get; set; } 
@@ -62,7 +61,10 @@ public static class FilterPolicyExtensions
             expression.Parameters); 
     } 
 
-
+     
+    /// <summary> 
+    /// Prepend the given predicate with a short circuiting null check. 
+    /// </summary> 
     public static Expression AddNullCheck<T>( 
                             Expression left, 
                             Expression expression) 
@@ -73,25 +75,31 @@ public static class FilterPolicyExtensions
         return Expression.AndAlso(notNull, expression); 
     } 
 
-
+    /// <summary> 
+    /// Return a binary expression based on the given filter string. Default to a 
+    /// standard Equals comparison. 
+    /// </summary> 
     private static Expression GetComparer(string op, Expression left, Expression right) => op switch
     { 
-        ">" => Expression.GreaterThan(left, right), 
+        ">"  => Expression.GreaterThan(left, right), 
         ">=" => Expression.GreaterThanOrEqual(left, right), 
-        "<" => Expression.LessThan(left, right), 
+        "<"  => Expression.LessThan(left, right), 
         "<=" => Expression.LessThanOrEqual(left, right), 
         "<>" => Expression.NotEqual(left, right), 
         "!=" => Expression.NotEqual(left, right), 
-        "!" => Expression.NotEqual(left, right), 
-        _ => Expression.Equal(left, right) 
+        "!"  => Expression.NotEqual(left, right), 
+         _   => Expression.Equal(left, right) 
     }; 
 
+    // Used to test for numerical integer types when casting a float to integer.
     private static Type[] intTypes = new Type[]{ typeof(Int16),   typeof(Int32),   typeof(Int64), 
                                                  typeof(UInt16),  typeof(UInt32),  typeof(UInt64), 
                                                  typeof(Int16?),  typeof(Int32?),  typeof(Int64?), 
                                                  typeof(UInt16?), typeof(UInt32?), typeof(UInt64?)}; 
 
-    // Dynamically build an expression suitable for filtering in a Where clause
+    /// <summary> 
+    /// Dynamically build an expression suitable for filtering in a Where clause 
+    /// </summary> 
     public static Expression<Func<T, bool>> GetFilterExpressionForType<T>(string property, string value) 
     { 
         var parameter = Expression.Parameter(typeof(T), "x"); 
@@ -120,7 +128,7 @@ public static class FilterPolicyExtensions
         // For string comparisons using wildcards, trim the wildcard characters and pass to the comparison method
         if (lType == typeof(string)) { 
             // Grab the object property for use in the inner expression body
-            var strParam = Expression.Lambda<Func<T,string>>(opLeft, parameter); 
+            var strParam =  Expression.Lambda<Func<T,string>>(opLeft, parameter); 
              
             if (value.StartsWith("*") && value.EndsWith("*")) { 
                 return AddFilterToStringProperty<T>(strParam, value.Trim('*'), "Contains"); 
@@ -166,7 +174,10 @@ public static class FilterPolicyExtensions
         return Expression.Lambda<Func<T, bool>>(comparison ?? Expression.Equal(opLeft, opRight), parameter); 
     } 
 
-    // Combine a list of expressions inclusively
+    /// <summary> 
+    /// Combine a list of expressions exclusively with AndAlso predicate from  
+    /// PredicateBuilder. This operator short circuits. 
+    /// </summary> 
     public static Expression<Func<T, bool>>? CombineAnd<T>(IEnumerable<Expression<Func<T, bool>>> predicates) 
     { 
         if (predicates.Count() == 0) return null; 
@@ -178,8 +189,11 @@ public static class FilterPolicyExtensions
         return final; 
     } 
 
-
-    // Combine a list of expressions inclusively
+     
+    /// <summary> 
+    /// Combine a list of expressions inclusively with an Or predicate 
+    /// from PredicateBuilder. 
+    /// </summary> 
     public static Expression<Func<T, bool>>? CombineOr<T>(IEnumerable<Expression<Func<T, bool>>> predicates) 
     { 
         if (predicates.Count() == 0) return null; 
@@ -191,7 +205,9 @@ public static class FilterPolicyExtensions
         return final; 
     } 
 
-    // Combine a list of expressions inclusively
+    /// <summary> 
+    /// Combine two given expressions based on a given enum. 
+    /// </summary> 
     public static Expression<Func<T, bool>>? CombinePredicates<T>(Expression<Func<T, bool>> first, Expression<Func<T, bool>> second, FilterPolicyExtensions.RuleOperator op) 
     { 
         var predicates = new List<Expression<Func<T, bool>>> { first, second }.Where(x => x != null); 
@@ -202,7 +218,9 @@ public static class FilterPolicyExtensions
         return CombineOr(predicates); 
     } 
 
-    // Combine a list of expressions inclusively
+    /// <summary> 
+    /// Combine a list of expressions based on the given operator enum. 
+    /// </summary> 
     public static Expression<Func<T, bool>>? CombinePredicates<T>(IEnumerable<Expression<Func<T, bool>>> predicates, FilterPolicyExtensions.RuleOperator op) 
     { 
         if (predicates.Count() == 0) return null; 
@@ -214,6 +232,9 @@ public static class FilterPolicyExtensions
         return CombineOr(predicates); 
     } 
 
+    /// <summary> 
+    /// Generate an expression tree targeting an object type based on a given policy. 
+    /// </summary> 
     public static Expression<Func<T, bool>>? GetFilterExpression<T>(this FilterRule policy) 
     { 
         if (policy == null) {  
