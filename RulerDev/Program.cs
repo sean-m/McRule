@@ -8,7 +8,7 @@ using System.Collections.Generic;
 using static RulerDev.MyExtensions;
 
 var users = new List<User> {
-    new User("Sean","McArdle","971-900-7335","503-555-1245", "SDC", "DAS"),
+    new User("Sean","McArdle","971-900-7335","503-555-1245", "SDC", "DAS", new string[] {"IT", "Admin"}),
     new User("Brian","Chamberland","971-900-7335","503-555-1245", "SDC", "DAS"),
     new User("Brian","Tong","971-900-7335","503-555-1245", "SDC", "DAS"),
     new User("Brian","Chytka","971-900-7335","503-555-1245", "3990 Fairview", "ODHSOHA"),
@@ -23,8 +23,9 @@ var filterPolicy = new FilterPolicy
 {
     name = "DHS or OHA",
     properties = new string[] { }, // Can't do anything with this yet
-    scope = new List<(string, string, string)>
+    rules = new List<(string, string, string)>
     {
+        ("User", "tags", "IT"),
         ("User", "agency", "ODHSOHA"),
         ("User", "agency", "ODHS"),
         ("User", "agency", "OHA")
@@ -41,7 +42,7 @@ filterPolicy = new FilterPolicy
 {
     name = "All DAS Brians",
     properties = new string[] { }, // Can't do anything with this yet
-    scope = new List<(string, string, string)>
+    rules = new List<(string, string, string)>
     {
         ("User", "first", "Brian"), 
         ("User", "agency", "DAS")
@@ -69,6 +70,6 @@ users.Where(dynamicFilterBrian).Dump("All Brian's");
 
 
 
-record User(string first, string last, string workPhone, string homePhone, string workAddress, string agency);
+record User(string first, string last, string workPhone, string homePhone, string workAddress, string agency, string[] tags = null);
 
 

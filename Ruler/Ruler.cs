@@ -18,10 +18,11 @@ public class FilterRule
 { 
     public Guid id { get; set;} = Guid.NewGuid(); 
     public string appliesToType { get; set; } 
-    public IEnumerable<(string, string, string)> scope { get; set; } 
+    public IEnumerable<(string, string, string)> rules { get; set; } 
     public FilterRule innerRule { get; set; } 
     public FilterPolicyExtensions.RuleOperator ruleOperator { get; set; } = FilterPolicyExtensions.RuleOperator.And; 
 } 
+
 
 public static class FilterPolicyExtensions
 { 
@@ -114,35 +115,43 @@ public static class FilterPolicyExtensions
         // so it is parsed into a decimal value first and then rounded to the nearest integral.
         var lType = opLeft.Type; 
         var isNullable = false; 
-        Type? interfaceType = lType.GetInterface("IComparable"); 
-        if (interfaceType == null && opLeft.Type.IsValueType) 
+        Type? hasComparable = lType.GetInterface("IComparable"); 
+        Type? hasCollection = lType.GetInterface("ICollection"); 
+        if (hasComparable == null && opLeft.Type.IsValueType) 
         { 
             lType = Nullable.GetUnderlyingType(opLeft.Type); 
             // Nullable.GetUnderlyingType only returns a non-null value if the
             // supplied type was indeed a nullable type.
             if (lType != null) 
                 isNullable = true; 
-            interfaceType = lType.GetInterface("IComparable"); 
+            hasComparable = lType.GetInterface("IComparable"); 
         } 
+
 
         // For string comparisons using wildcards, trim the wildcard characters and pass to the comparison method
-        if (lType == typeof(string)) { 
+        if (lType == typeof(string)) 
+        { 
             // Grab the object property for use in the inner expression body
-            var strParam =  Expression.Lambda<Func<T,string>>(opLeft, parameter); 
-             
-            if (value.StartsWith("*") && value.EndsWith("*")) { 
+            var strParam = Expression.Lambda<Func<T, string>>(opLeft, parameter); 
+
+            if (value.StartsWith("*") && value.EndsWith("*")) 
+            { 
                 return AddFilterToStringProperty<T>(strParam, value.Trim('*'), "Contains"); 
-            } else if (value.StartsWith("*")) { 
+            } 
+            else if (value.StartsWith("*")) 
+            { 
                 return AddFilterToStringProperty<T>(strParam, value.TrimStart('*'), "EndsWith"); 
-            } else if (value.EndsWith("*")) { 
+            } 
+            else if (value.EndsWith("*")) 
+            { 
                 return AddFilterToStringProperty<T>(strParam, value.TrimEnd('*'), "StartsWith"); 
-            } else { 
-                comparison = Expression.Equal(opLeft, opRight); 
-                return Expression.Lambda<Func<T, bool>>(comparison, parameter); 
+            } 
+            else
+            { 
+                comparison = Expression.Equal(opLeft, opRight);
             } 
         } 
-
-        if (interfaceType == typeof(IComparable)) 
+        else if (hasComparable == typeof(IComparable)) 
         { 
             var operatorPrefix = Regex.Match(value.Trim(), @"^[!<>=]+"); 
             var operand = (operatorPrefix.Success ? value.Replace(operatorPrefix.Value, "") : value).Trim(); 
@@ -159,7 +168,13 @@ public static class FilterPolicyExtensions
                 Expression opLeftFinal = isNullable ? Expression.Convert(opLeft, lType) : opLeft; 
                 comparison = GetComparer(operatorPrefix.Value.Trim(), opLeftFinal, opRight); 
             } 
-        } else { 
+        } 
+        else if (hasCollection == typeof(System.Collections.ICollection)) 
+        { 
+            return GetArrayContainsExpression<T>(property, value); 
+        } 
+        else
+        { 
             comparison = Expression.Equal(opLeft, opRight);     
         } 
          
@@ -172,6 +187,30 @@ public static class FilterPolicyExtensions
         } 
          
         return Expression.Lambda<Func<T, bool>>(comparison ?? Expression.Equal(opLeft, opRight), parameter); 
+    } 
+
+
+    static Expression<Func<T, bool>> GetArrayContainsExpression<T>(string property, object value) 
+    { 
+        // Bind to the property by name and make the constant value
+        // we'll be passing into the Contains() call
+        var parameter = Expression.Parameter(typeof(T), "x"); 
+        var opLeft = Expression.Property(parameter, property); 
+        var opRight = Expression.Constant(value); 
+
+        // Create generic method which is bound with the Call Expression below
+        var arrContainsRuntimeMethod = typeof(System.Linq.Enumerable).GetMethods() 
+            .Where(x => x.Name == "Contains") 
+            .Single(x => x.GetParameters().Length == 2) 
+            .MakeGenericMethod(value.GetType()); 
+
+        //LambdaExpression
+        var containsCall = Expression.Call(arrContainsRuntimeMethod, opLeft, opRight); 
+
+        var finalExpression = AddNullCheck<T>(opLeft, containsCall); 
+
+        // Wrap it up in a warm lambda snuggie
+        return Expression.Lambda<Func<T, bool>>(finalExpression, false, parameter); 
     } 
 
     /// <summary> 
@@ -232,6 +271,7 @@ public static class FilterPolicyExtensions
         return CombineOr(predicates); 
     } 
 
+     
     /// <summary> 
     /// Generate an expression tree targeting an object type based on a given policy. 
     /// </summary> 
@@ -240,12 +280,13 @@ public static class FilterPolicyExtensions
         if (policy == null) {  
             return null;  
         } 
-         
+
         Expression<Func<T, bool>> truePredicate = x => true; 
         Expression<Func<T, bool>> falsePredicate = x => false; 
-         
+
         var predicates = new List<Expression<Func<T, bool>>>(); 
-        foreach (var constraints in policy.scope.Where(x => x.Item1 != null)) 
+        var typeName = typeof(T).Name; 
+        foreach (var constraints in policy.rules.Where(x => x.Item1 != null)) 
         { 
             if (!(typeof(T).Name.Equals(constraints.Item1, StringComparison.CurrentCultureIgnoreCase))) 
             { 
