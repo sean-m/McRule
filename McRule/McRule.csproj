@@ -1,10 +1,22 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <TargetFramework>netstandard2.1</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <LangVersion>10</LangVersion>
+    <UserSecretsId>63a98c68-03bd-4069-b6b9-e0978081c430</UserSecretsId>
+    <GeneratePackageOnBuild>True</GeneratePackageOnBuild>
+    <Title>McRule - Rule based expression generator</Title>
+		<Version>0.0.1</Version>
+		<Company>Sean McArdle</Company>
+		<Description>Library for generating expression trees from simple policy rules.</Description>
+		<Copyright>2023 Sean McArdle</Copyright>
+		<RepositoryUrl>https://github.com/sean-m/McRule</RepositoryUrl>
+		<PackageLicenseExpression>MIT-0</PackageLicenseExpression>
+		<IncludeSymbols>True</IncludeSymbols>
+		<SymbolPackageFormat>snupkg</SymbolPackageFormat>
+		<PackageReleaseNotes>Still baking. Maybe don't use this.</PackageReleaseNotes>
   </PropertyGroup>
 
 </Project>
