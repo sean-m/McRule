@@ -23,12 +23,12 @@ var filterPolicy = new FilterPolicy
 {
     name = "DHS or OHA",
     properties = new string[] { }, // Can't do anything with this yet
-    rules = new List<(string, string, string)>
+    rules = new List<FilterRule>()
     {
-        ("User", "tags", "IT"),
-        ("User", "agency", "ODHSOHA"),
-        ("User", "agency", "ODHS"),
-        ("User", "agency", "OHA")
+        ("User", "tags", "IT").ToFilterRule(),
+        ("User", "agency", "ODHSOHA").ToFilterRule(),
+        ("User", "agency", "ODHS").ToFilterRule(),
+        ("User", "agency", "OHA").ToFilterRule()
     },
     ruleOperator = FilterPolicyExtensions.RuleOperator.Or
 };
@@ -42,10 +42,10 @@ filterPolicy = new FilterPolicy
 {
     name = "All DAS Brians",
     properties = new string[] { }, // Can't do anything with this yet
-    rules = new List<(string, string, string)>
+    rules = new List<FilterRule>
     {
-        ("User", "first", "Brian"), 
-        ("User", "agency", "DAS")
+        ("User", "first", "Brian").ToFilterRule(), 
+        ("User", "agency", "DAS").ToFilterRule()
     }
 };
 filterExpression = filterPolicy.GetFilterExpression<User>();
