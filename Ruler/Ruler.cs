@@ -4,7 +4,7 @@ using System.Text.RegularExpressions;
 
 namespace Ruler;
 
-public class FilterPolicy : FilterRule
+public class FilterPolicy : FilterRuleCollection
 { 
     public string name { get; set; } 
     public string[] properties { get; set; } 
@@ -14,15 +14,36 @@ public class FilterPolicy : FilterRule
     } 
 } 
 
-public class FilterRule
+public class FilterRuleCollection
 { 
     public Guid id { get; set;} = Guid.NewGuid(); 
-    public string appliesToType { get; set; } 
-    public IEnumerable<(string, string, string)> rules { get; set; } 
-    public FilterRule innerRule { get; set; } 
+     
+    public FilterRuleCollection rule { get; set; } 
     public FilterPolicyExtensions.RuleOperator ruleOperator { get; set; } = FilterPolicyExtensions.RuleOperator.And; 
+     
+    public IEnumerable<FilterRule> rules { get; set; } 
 } 
 
+public class FilterRule
+{ 
+    public string targetType { get; set; } 
+    public string property { get; set;} 
+    public string value { get; set; } 
+     
+    public (string, string, string) rule => (targetType, property, value); 
+     
+    public FilterRule (string TargetType, string Property, string Value) { 
+        targetType = TargetType; 
+        property = Property; 
+        value = Value; 
+    } 
+     
+    public FilterRule ((string, string, string) input) { 
+        targetType = input.Item1; 
+        property = input.Item2; 
+        value = input.Item3; 
+    } 
+} 
 
 public static class FilterPolicyExtensions
 { 
@@ -30,6 +51,11 @@ public static class FilterPolicyExtensions
     { 
         And, 
         Or 
+    } 
+
+    public static FilterRule ToFilterRule(this (string, string, string) tuple) 
+    { 
+        return new FilterRule(tuple); 
     } 
 
     /// <summary> 
@@ -148,7 +174,8 @@ public static class FilterPolicyExtensions
             } 
             else
             { 
-                comparison = Expression.Equal(opLeft, opRight);
+                comparison = Expression.Equal(opLeft, opRight); 
+                //return Expression.Lambda<Func<T, bool>>(comparison, parameter);
             } 
         } 
         else if (hasComparable == typeof(IComparable)) 
@@ -275,7 +302,7 @@ public static class FilterPolicyExtensions
     /// <summary> 
     /// Generate an expression tree targeting an object type based on a given policy. 
     /// </summary> 
-    public static Expression<Func<T, bool>>? GetFilterExpression<T>(this FilterRule policy) 
+    public static Expression<Func<T, bool>>? GetFilterExpression<T>(this FilterRuleCollection policy) 
     { 
         if (policy == null) {  
             return null;  
@@ -286,19 +313,18 @@ public static class FilterPolicyExtensions
 
         var predicates = new List<Expression<Func<T, bool>>>(); 
         var typeName = typeof(T).Name; 
-        foreach (var constraints in policy.rules.Where(x => x.Item1 != null)) 
+        foreach (var rule in policy.rules.Where(x => x.targetType != null)) 
         { 
-            if (!(typeof(T).Name.Equals(constraints.Item1, StringComparison.CurrentCultureIgnoreCase))) 
+            if (!(typeof(T).Name.Equals(rule.targetType, StringComparison.CurrentCultureIgnoreCase))) 
             { 
                 continue; 
             } 
-            predicates.Add(GetFilterExpressionForType<T>(constraints.Item2, constraints.Item3)); 
+            var expression = rule.GetFilterExpression<T>(); 
+            if (expression != null) predicates.Add(expression); 
         } 
 
-        var first = CombinePredicates<T>(predicates, policy.ruleOperator); 
-        var second = policy.innerRule?.GetFilterExpression<T>(); 
-
-
+        var first = policy.rule?.GetFilterExpression<T>(); 
+        var second = CombinePredicates<T>(predicates, policy.ruleOperator); 
 
         if (first == null && second == null) 
         { 
@@ -308,5 +334,16 @@ public static class FilterPolicyExtensions
         else if (first != null && second == null) return first; 
         else if (first == null && second != null) return second; 
         else return CombinePredicates<T>(first, second, policy.ruleOperator); 
+    } 
+
+    /// <summary> 
+    /// Generate an expression tree targeting an object type based on a given policy. 
+    /// </summary> 
+    public static Expression<Func<T, bool>>? GetFilterExpression<T>(this FilterRule policy) 
+    { 
+        if (policy == null)    return null; 
+        if (!(typeof(T).Name.Equals(policy.targetType, StringComparison.CurrentCultureIgnoreCase))) return null; 
+         
+        return GetFilterExpressionForType<T>(policy.property, policy.value); 
     } 
 }
