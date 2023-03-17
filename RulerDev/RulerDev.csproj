@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <ItemGroup>
-    <ProjectReference Include="..\Ruler\Ruler.csproj" />
+    <ProjectReference Include="..\McRule\McRule.csproj" />
   </ItemGroup>
 
   <ItemGroup>

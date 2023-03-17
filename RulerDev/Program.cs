@@ -1,5 +1,5 @@
 ﻿
-using Ruler;
+using McRule;
 using System;
 using System.Linq;
 using System.Linq.Expressions;

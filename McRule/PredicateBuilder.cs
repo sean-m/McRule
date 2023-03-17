@@ -1,6 +1,6 @@
 using System.Linq.Expressions;
 
-namespace Ruler;
+namespace LinqKit;
 
 // Taken from LinqKit, Joseph Albahari. Man is a legend.
 // LINQKit Copyright (c) 2007-2009 Joseph Albahari, Tomas Petricek
