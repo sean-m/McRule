@@ -1,6 +1,6 @@
 using System.Linq.Expressions;
 
-namespace LinqKit;
+namespace McRule;
 
 // Taken from LinqKit, Joseph Albahari. Man is a legend.
 // LINQKit Copyright (c) 2007-2009 Joseph Albahari, Tomas Petricek
