@@ -5,7 +5,8 @@ using System.Text;
 namespace McRule {
 
     public class FilterPolicy : FilterRuleCollection {
-        public string name { get; set; }
-        public string[] properties { get; set; }
+        public Guid Id { get; set; }
+        public string Name { get; set; }
+        public string[] Properties { get; set; }
     }
 }

@@ -21,36 +21,36 @@ var users = new List<User> {
 
 var filterPolicy = new FilterPolicy
 {
-    name = "DHS or OHA",
-    properties = new string[] { }, // Can't do anything with this yet
-    rules = new List<FilterRule>()
+    Name = "DHS or OHA",
+    Properties = new string[] { }, // Can't do anything with this yet
+    Rules = new List<FilterRule>()
     {
         ("User", "tags", "IT").ToFilterRule(),
         ("User", "agency", "ODHSOHA").ToFilterRule(),
         ("User", "agency", "ODHS").ToFilterRule(),
         ("User", "agency", "OHA").ToFilterRule()
     },
-    ruleOperator = FilterPolicyExtensions.RuleOperator.Or
+    RuleOperator = FilterPolicyExtensions.RuleOperator.Or
 };
 var filterExpression = filterPolicy.GetFilterExpression<User>();
-filterPolicy.Dump(filterPolicy.name);
-users.Where(filterExpression).Dump($"{filterPolicy.name} operator {filterPolicy.ruleOperator}");
+filterPolicy.Dump(filterPolicy.Name);
+users.Where(filterExpression).Dump($"{filterPolicy.Name} operator {filterPolicy.RuleOperator}");
 
 
 
 filterPolicy = new FilterPolicy
 {
-    name = "All DAS Brians",
-    properties = new string[] { }, // Can't do anything with this yet
-    rules = new List<FilterRule>
+    Name = "All DAS Brians",
+    Properties = new string[] { }, // Can't do anything with this yet
+    Rules = new List<FilterRule>
     {
         ("User", "first", "Brian").ToFilterRule(), 
         ("User", "agency", "DAS").ToFilterRule()
     }
 };
 filterExpression = filterPolicy.GetFilterExpression<User>();
-filterPolicy.Dump(filterPolicy.name);
-users.Where(filterExpression).Dump($"operator {filterPolicy.ruleOperator}");
+filterPolicy.Dump(filterPolicy.Name);
+users.Where(filterExpression).Dump($"operator {filterPolicy.RuleOperator}");
 
 
 

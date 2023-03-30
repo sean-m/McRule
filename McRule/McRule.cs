@@ -241,22 +241,22 @@ public static class FilterPolicyExtensions {
 
         var predicates = new List<Expression<Func<T, bool>>>();
         var typeName = typeof(T).Name;
-        foreach (var rule in policy.rules.Where(x => x.targetType != null)) {
-            if (!(typeof(T).Name.Equals(rule.targetType, StringComparison.CurrentCultureIgnoreCase))) {
+        foreach (var rule in policy.Rules.Where(x => x.TargetType != null)) {
+            if (!(typeof(T).Name.Equals(rule.TargetType, StringComparison.CurrentCultureIgnoreCase))) {
                 continue;
             }
             var expression = rule.GetFilterExpression<T>();
             if (expression != null) predicates.Add(expression);
         }
 
-        var first = policy.rule?.GetFilterExpression<T>();
-        var second = CombinePredicates<T>(predicates, policy.ruleOperator);
+        var first = policy.Rule?.GetFilterExpression<T>();
+        var second = CombinePredicates<T>(predicates, policy.RuleOperator);
 
         if (first == null && second == null) {
-            System.Diagnostics.Debug.WriteLine($"No predicates available for type: <{typeof(T).Name}> in policy: {policy.id}");
+            System.Diagnostics.Debug.WriteLine($"No predicates available for type: <{typeof(T).Name}> in policy: {policy.Id}");
             return falsePredicate;
         } else if (first != null && second == null) return first;
         else if (first == null && second != null) return second;
-        else return CombinePredicates<T>(first, second, policy.ruleOperator);
+        else return CombinePredicates<T>(first, second, policy.RuleOperator);
     }
 }

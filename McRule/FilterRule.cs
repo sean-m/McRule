@@ -6,50 +6,50 @@ using System.Text;
 namespace McRule {
 
     public class FilterRuleCollection {
-        public Guid id { get; set; } = Guid.NewGuid();
+        public Guid Id { get; set; } = Guid.NewGuid();
 
-        public FilterRuleCollection rule { get; set; }
-        public FilterPolicyExtensions.RuleOperator ruleOperator { get; set; } = FilterPolicyExtensions.RuleOperator.And;
+        public FilterRuleCollection Rule { get; set; }
+        public FilterPolicyExtensions.RuleOperator RuleOperator { get; set; } = FilterPolicyExtensions.RuleOperator.And;
 
-        public IEnumerable<FilterRule> rules { get; set; }
+        public IEnumerable<FilterRule> Rules { get; set; }
     }
 
     public class FilterRule {
-        public string targetType { get; set; }
-        public string property { get; set; }
-        public string value { get; set; }
+        public string TargetType { get; set; }
+        public string Property { get; set; }
+        public string Value { get; set; }
 
         Expression? cachedExpression = null;
 
-        public (string, string, string) rule => (targetType, property, value);
+        public (string, string, string) rule => (TargetType, Property, Value);
 
         public FilterRule(string TargetType, string Property, string Value) {
-            targetType = TargetType;
-            property = Property;
-            value = Value;
+            this.TargetType = TargetType;
+            this.Property = Property;
+            this.Value = Value;
         }
 
         public FilterRule((string, string, string) input) {
-            targetType = input.Item1;
-            property = input.Item2;
-            value = input.Item3;
+            TargetType = input.Item1;
+            Property = input.Item2;
+            Value = input.Item3;
         }
 
         /// <summary>
         /// Returns an expression tree targeting an object type based on policy parameters.
         /// </summary>	
         public Expression<Func<T, bool>>? GetFilterExpression<T>() {
-            if (!(typeof(T).Name.Equals(this.targetType, StringComparison.CurrentCultureIgnoreCase))) return null;
+            if (!(typeof(T).Name.Equals(this.TargetType, StringComparison.CurrentCultureIgnoreCase))) return null;
 
             if (cachedExpression == null) {
-                cachedExpression = FilterPolicyExtensions.GetFilterExpressionForType<T>(this.property, this.value);
+                cachedExpression = FilterPolicyExtensions.GetFilterExpressionForType<T>(this.Property, this.Value);
             }
 
             return (Expression<Func<T, bool>>)cachedExpression;
         }
 
         public override string ToString() {
-            return $"[{targetType}]{property}='{value}']";
+            return $"[{TargetType}]{Property}='{Value}']";
         }
 
         public string GetFilterString<T>() {
