@@ -12,6 +12,7 @@ namespace McRule {
         public FilterPolicyExtensions.RuleOperator RuleOperator { get; set; } = FilterPolicyExtensions.RuleOperator.And;
 
         public IEnumerable<FilterRule> Rules { get; set; }
+        public FilterRuleCollection() { }
     }
 
     public class FilterRule {
@@ -21,7 +22,9 @@ namespace McRule {
 
         Expression? cachedExpression = null;
 
-        public (string, string, string) rule => (TargetType, Property, Value);
+        internal (string, string, string) Rule => (TargetType, Property, Value);
+
+        public FilterRule() { }
 
         public FilterRule(string TargetType, string Property, string Value) {
             this.TargetType = TargetType;
@@ -34,7 +37,7 @@ namespace McRule {
             Property = input.Item2;
             Value = input.Item3;
         }
-
+        
         /// <summary>
         /// Returns an expression tree targeting an object type based on policy parameters.
         /// </summary>	
