@@ -19,3 +19,11 @@ A simple equality comparison is used by default but operators can be prefixed to
 > Note: the IComparable interface is mostly used for numerical types but custom types with comparison providers may work at runtime.
 
 ### Examples
+
+
+## Notes
+
+Publish nuget package:
+```
+dotnet nuget push McRule.0.0.5.nupkg --api-key <api key> --source https://api.nuget.org/v3/index.json
+```
