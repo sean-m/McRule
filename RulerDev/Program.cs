@@ -14,7 +14,8 @@ var users = new List<User> {
     new User("Brian","Chytka","971-900-7335","503-555-1245", "3990 Fairview", "ODHSOHA"),
     new User("Fariborz", "Pakseresht","971-900-7335","503-555-1245", "500 Summer", "ODHS"),
     new User("Simon","Hayes","971-900-7335","503-555-1245", "3990 Fairview", "OHA"),
-    new User("Tess","McArdle","971-555-7335","503-555-5555", "Home", "HomeSchool")
+    new User("Tess","McArdle","971-555-7335","503-555-5555", "Home", "HomeSchool"),
+    new User("Ian", "McCloud","971-555-7335","503-555-5555", "Home", "HomeSchool")
 }.AsQueryable();
 
 //users.Dump();
@@ -44,7 +45,7 @@ filterPolicy = new FilterPolicy
     Properties = new string[] { }, // Can't do anything with this yet
     Rules = new List<FilterRule>
     {
-        ("User", "first", "Brian").ToFilterRule(), 
+        ("User", "first", "~*ian").ToFilterRule(), 
         ("User", "agency", "DAS").ToFilterRule()
     }
 };
@@ -64,7 +65,7 @@ policies.Add(dynamicFilterDAS);
 policies.Add(dynamicFilterBrian);
 var combined = FilterPolicyExtensions.CombineAnd(policies);
 
-users.Where(dynamicFilterBrian).Dump("All Brian's");
+users.Where(dynamicFilterBrian).Dump("All *ian's");
 (from u in users.Where(combined)
     select new { u.first, u.last, u.agency}).Dump("All Brian's from DAS");
 
