@@ -25,7 +25,6 @@ public static class FilterPolicyExtensions {
         if (!(filterType == "StartsWith" || filterType == "EndsWith" || filterType == "Contains")) {
             throw new Exception($"filterType must equal StartsWith, EndsWith or Contains. Passed {filterType}");
         }
-
 #endif
         // Check that the property isn't null, otherwise we'd hit null object exceptions at runtime
         var notNull = Expression.NotEqual(expression.Body, Expression.Constant(null));
@@ -72,10 +71,10 @@ public static class FilterPolicyExtensions {
     };
 
     // Used to test for numerical integer types when casting a float to integer.
-    private static Type[] intTypes = new Type[]{ typeof(Int16),   typeof(Int32),   typeof(Int64),
-                                                 typeof(UInt16),  typeof(UInt32),  typeof(UInt64),
-                                                 typeof(Int16?),  typeof(Int32?),  typeof(Int64?),
-                                                 typeof(UInt16?), typeof(UInt32?), typeof(UInt64?)};
+    private static Type[] intTypes = { typeof(Int16),   typeof(Int32),   typeof(Int64),
+                                       typeof(UInt16),  typeof(UInt32),  typeof(UInt64),
+                                       typeof(Int16?),  typeof(Int32?),  typeof(Int64?),
+                                       typeof(UInt16?), typeof(UInt32?), typeof(UInt64?)};
 
     /// <summary>
     /// Dynamically build an expression suitable for filtering in a Where clause
@@ -232,9 +231,6 @@ public static class FilterPolicyExtensions {
     /// Generate an expression tree targeting an object type based on a given policy.
     /// </summary>
     public static Expression<Func<T, bool>>? GetFilterExpression<T>(this FilterRuleCollection policy) {
-        if (policy == null) {
-            return null;
-        }
 
         Expression<Func<T, bool>> truePredicate = x => true;
         Expression<Func<T, bool>> falsePredicate = x => false;
