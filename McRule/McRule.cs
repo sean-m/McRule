@@ -1,6 +1,7 @@
 ﻿
 using System.Collections;
 using System.Linq.Expressions;
+using System.Reflection;
 using System.Text.RegularExpressions;
 
 namespace McRule;
@@ -15,33 +16,42 @@ public static class FilterPolicyExtensions {
         return new FilterRule(tuple);
     }
 
-    /// <summary>
-    /// Builds expressions using string member functions StartsWith, EndsWith or Contains as the comparator.
-    /// </summary>
-    public static Expression<Func<T, bool>> AddFilterToStringProperty<T>(
-                            Expression<Func<T, string>> expression, string filter, string filterType) {
+    /// <summary> 
+    /// Builds expressions using string member functions StartsWith, EndsWith or Contains as the comparator. 
+    /// </summary> 
+    public static Expression<Func<T, bool>> AddFilterToStringProperty<T>( 
+        Expression<Func<T, string>> expression, string filter, string filterType, bool ignoreCase=false) 
+    { 
 
-#if DEBUG
-        if (!(filterType == "StartsWith" || filterType == "EndsWith" || filterType == "Contains")) {
-            throw new Exception($"filterType must equal StartsWith, EndsWith or Contains. Passed {filterType}");
-        }
+#if DEBUG 
+        if (!(filterType == "StartsWith" || filterType == "EndsWith" || filterType == "Contains" || filterType == "Equals")) 
+        { 
+            throw new Exception($"filterType must equal StartsWith, EndsWith or Contains. Passed {filterType}"); 
+        } 
 
 #endif
         // Check that the property isn't null, otherwise we'd hit null object exceptions at runtime
-        var notNull = Expression.NotEqual(expression.Body, Expression.Constant(null));
+        var notNull = Expression.NotEqual(expression.Body, Expression.Constant(null)); 
 
-        // Setup calls to EtartsWith, EndsWith, or Contains
-        // TODO expressionArgs was used to pass multiple values for case insensitive compare, wasn't
-        // mapping the method correctly when used with EF so need to revisit that
-        var expressionArgs = new Expression[] { Expression.Constant(filter) };
-        var strPredicate = Expression.Call(expression.Body, filterType, null, expressionArgs);
+        // Setup calls to: StartsWith, EndsWith, Contains, or Equals,
+        // conditionally using character case neutral comparision.
+        Expression[] expressionArgs = new[] { Expression.Constant(filter), Expression.Constant(StringComparison.CurrentCulture) }; 
+        if (ignoreCase)
+        {
+            expressionArgs[1] = Expression.Constant(StringComparison.CurrentCultureIgnoreCase);
+        }
 
-        var filterExpression = Expression.AndAlso(notNull, strPredicate);
+        MethodInfo methodInfo = typeof(string).GetMethod(filterType, new[] { typeof(string), typeof(StringComparison) });
+        var strPredicate = Expression.Call(expression.Body, methodInfo, expressionArgs); 
 
-        return Expression.Lambda<Func<T, bool>>(
-            filterExpression,
-            expression.Parameters);
-    }
+        var filterExpression = Expression.AndAlso(notNull, strPredicate); 
+
+        return Expression.Lambda<Func<T, bool>>( 
+            filterExpression, 
+            expression.Parameters); 
+    } 
+
+
 
 
     /// <summary>
@@ -72,10 +82,10 @@ public static class FilterPolicyExtensions {
     };
 
     // Used to test for numerical integer types when casting a float to integer.
-    private static Type[] intTypes = new Type[]{ typeof(Int16),   typeof(Int32),   typeof(Int64),
-                                                 typeof(UInt16),  typeof(UInt32),  typeof(UInt64),
-                                                 typeof(Int16?),  typeof(Int32?),  typeof(Int64?),
-                                                 typeof(UInt16?), typeof(UInt32?), typeof(UInt64?)};
+    private static Type[] intTypes = { typeof(Int16),   typeof(Int32),   typeof(Int64),
+                                       typeof(UInt16),  typeof(UInt32),  typeof(UInt64),
+                                       typeof(Int16?),  typeof(Int32?),  typeof(Int64?),
+                                       typeof(UInt16?), typeof(UInt32?), typeof(UInt64?)};
 
     /// <summary>
     /// Dynamically build an expression suitable for filtering in a Where clause
@@ -106,20 +116,38 @@ public static class FilterPolicyExtensions {
 
 
         // For string comparisons using wildcards, trim the wildcard characters and pass to the comparison method
-        if (lType == typeof(string)) {
+        // For string comparisons using wildcards, trim the wildcard characters and pass to the comparison method
+        if (lType == typeof(string)) 
+        { 
             // Grab the object property for use in the inner expression body
-            var strParam = Expression.Lambda<Func<T, string>>(opLeft, parameter);
+            var strParam = Expression.Lambda<Func<T, string>>(opLeft, parameter); 
 
-            if (value.StartsWith("*") && value.EndsWith("*")) {
-                return AddFilterToStringProperty<T>(strParam, value.Trim('*'), "Contains");
-            } else if (value.StartsWith("*")) {
-                return AddFilterToStringProperty<T>(strParam, value.TrimStart('*'), "EndsWith");
-            } else if (value.EndsWith("*")) {
-                return AddFilterToStringProperty<T>(strParam, value.TrimEnd('*'), "StartsWith");
-            } else {
-                comparison = Expression.Equal(opLeft, opRight);
-                //return Expression.Lambda<Func<T, bool>>(comparison, parameter);
-            }
+            // String comparisons which are prefixed with '~' will be evaluated ignoring case.
+            // Note: when expression trees are used outside .net, such as with EF to SQL Server,
+            // default case sensitivity for that environment may apply implicitly and counter to
+            // filter policy intent.
+            bool ignoreCase = false; 
+            if (value.StartsWith('~')) { 
+                ignoreCase = true; 
+                value = value.TrimStart('~'); 
+            } 
+
+            if (value.StartsWith("*") && value.EndsWith("*")) 
+            { 
+                return AddFilterToStringProperty<T>(strParam, value.Trim('*'), "Contains", ignoreCase); 
+            } 
+            else if (value.StartsWith("*")) 
+            { 
+                return AddFilterToStringProperty<T>(strParam, value.TrimStart('*'), "EndsWith", ignoreCase); 
+            } 
+            else if (value.EndsWith("*")) 
+            { 
+                return AddFilterToStringProperty<T>(strParam, value.TrimEnd('*'), "StartsWith", ignoreCase); 
+            } 
+            else
+            { 
+                return AddFilterToStringProperty<T>(strParam, value, "Equals", ignoreCase); 
+            } 
         } else if (hasComparable == typeof(IComparable)) {
             var operatorPrefix = Regex.Match(value.Trim(), @"^[!<>=]+");
             var operand = (operatorPrefix.Success ? value.Replace(operatorPrefix.Value, "") : value).Trim();
@@ -232,9 +260,6 @@ public static class FilterPolicyExtensions {
     /// Generate an expression tree targeting an object type based on a given policy.
     /// </summary>
     public static Expression<Func<T, bool>>? GetFilterExpression<T>(this FilterRuleCollection policy) {
-        if (policy == null) {
-            return null;
-        }
 
         Expression<Func<T, bool>> truePredicate = x => true;
         Expression<Func<T, bool>> falsePredicate = x => false;
