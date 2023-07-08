@@ -32,7 +32,7 @@ public static class FilterRuleManager
     private static FilterRuleRepository _repo = new FilterRuleRepository();
     public static IEnumerable<T> WhereFilteredByPolicy<T>(this IEnumerable<T> sequence, string[] roles)
     {
-        var rules = roles.Select(x => _repo.GetRule(x)?.GetFilterExpression<T>()).Where(x => x != null);
+        var rules = roles.Select(x => _repo.GetRule(x)?.GetPredicateExpression<T>()).Where(x => x != null);
         if (rules == null || rules.Count() == 0)
         {
             // No policy matching the specified role found so filter out everything
@@ -40,7 +40,7 @@ public static class FilterRuleManager
             return sequence.Where(x => false);
         }
         
-        var predicates = FilterPolicyExtensions.CombinePredicates(rules, FilterPolicyExtensions.RuleOperator.And).Compile();
+        var predicates = PredicateExpressionPolicyExtensions.CombinePredicates(rules, PredicateExpressionPolicyExtensions.RuleOperator.And).Compile();
         return sequence.Where(predicates);
     }
     

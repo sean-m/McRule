@@ -9,7 +9,7 @@ namespace McRule {
         public Guid Id { get; set; } = Guid.NewGuid();
 
         public FilterRuleCollection Rule { get; set; }
-        public FilterPolicyExtensions.RuleOperator RuleOperator { get; set; } = FilterPolicyExtensions.RuleOperator.And;
+        public PredicateExpressionPolicyExtensions.RuleOperator RuleOperator { get; set; } = PredicateExpressionPolicyExtensions.RuleOperator.And;
 
         public IEnumerable<FilterRule> Rules { get; set; }
         public FilterRuleCollection() { }
@@ -45,7 +45,7 @@ namespace McRule {
             if (!(typeof(T).Name.Equals(this.TargetType, StringComparison.CurrentCultureIgnoreCase))) return null;
 
             if (cachedExpression == null) {
-                cachedExpression = FilterPolicyExtensions.GetFilterExpressionForType<T>(this.Property, this.Value);
+                cachedExpression = PredicateExpressionPolicyExtensions.GetPredicateExpressionForType<T>(this.Property, this.Value);
             }
 
             return (Expression<Func<T, bool>>)cachedExpression;

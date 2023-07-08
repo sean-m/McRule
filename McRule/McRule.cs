@@ -6,7 +6,7 @@ using System.Text.RegularExpressions;
 
 namespace McRule;
 
-public static class FilterPolicyExtensions {
+public static class PredicateExpressionPolicyExtensions {
     public enum RuleOperator {
         And,
         Or
@@ -19,7 +19,7 @@ public static class FilterPolicyExtensions {
     /// <summary> 
     /// Builds expressions using string member functions StartsWith, EndsWith or Contains as the comparator. 
     /// </summary> 
-    public static Expression<Func<T, bool>> AddFilterToStringProperty<T>( 
+    public static Expression<Func<T, bool>> AddStringPropertyExpression<T>( 
         Expression<Func<T, string>> expression, string filter, string filterType, bool ignoreCase=false) 
     { 
 
@@ -90,7 +90,7 @@ public static class FilterPolicyExtensions {
     /// <summary>
     /// Dynamically build an expression suitable for filtering in a Where clause
     /// </summary>
-    public static Expression<Func<T, bool>> GetFilterExpressionForType<T>(string property, string value) {
+    public static Expression<Func<T, bool>> GetPredicateExpressionForType<T>(string property, string value) {
         var parameter = Expression.Parameter(typeof(T), "x");
         var opLeft = Expression.Property(parameter, property);
         var opRight = Expression.Constant(value);
@@ -134,19 +134,19 @@ public static class FilterPolicyExtensions {
 
             if (value.StartsWith("*") && value.EndsWith("*")) 
             { 
-                return AddFilterToStringProperty<T>(strParam, value.Trim('*'), "Contains", ignoreCase); 
+                return AddStringPropertyExpression<T>(strParam, value.Trim('*'), "Contains", ignoreCase); 
             } 
             else if (value.StartsWith("*")) 
             { 
-                return AddFilterToStringProperty<T>(strParam, value.TrimStart('*'), "EndsWith", ignoreCase); 
+                return AddStringPropertyExpression<T>(strParam, value.TrimStart('*'), "EndsWith", ignoreCase); 
             } 
             else if (value.EndsWith("*")) 
             { 
-                return AddFilterToStringProperty<T>(strParam, value.TrimEnd('*'), "StartsWith", ignoreCase); 
+                return AddStringPropertyExpression<T>(strParam, value.TrimEnd('*'), "StartsWith", ignoreCase); 
             } 
             else
             { 
-                return AddFilterToStringProperty<T>(strParam, value, "Equals", ignoreCase); 
+                return AddStringPropertyExpression<T>(strParam, value, "Equals", ignoreCase); 
             } 
         } else if (hasComparable == typeof(IComparable)) {
             var operatorPrefix = Regex.Match(value.Trim(), @"^[!<>=]+");
@@ -235,7 +235,7 @@ public static class FilterPolicyExtensions {
     /// <summary>
     /// Combine two given expressions based on a given enum.
     /// </summary>
-    public static Expression<Func<T, bool>>? CombinePredicates<T>(Expression<Func<T, bool>> first, Expression<Func<T, bool>> second, FilterPolicyExtensions.RuleOperator op) {
+    public static Expression<Func<T, bool>>? CombinePredicates<T>(Expression<Func<T, bool>> first, Expression<Func<T, bool>> second, PredicateExpressionPolicyExtensions.RuleOperator op) {
         var predicates = new List<Expression<Func<T, bool>>> { first, second }.Where(x => x != null);
         if (op == RuleOperator.And) {
             return CombineAnd(predicates);
@@ -246,7 +246,7 @@ public static class FilterPolicyExtensions {
     /// <summary>
     /// Combine a list of expressions based on the given operator enum.
     /// </summary>
-    public static Expression<Func<T, bool>>? CombinePredicates<T>(IEnumerable<Expression<Func<T, bool>>> predicates, FilterPolicyExtensions.RuleOperator op) {
+    public static Expression<Func<T, bool>>? CombinePredicates<T>(IEnumerable<Expression<Func<T, bool>>> predicates, PredicateExpressionPolicyExtensions.RuleOperator op) {
         if (predicates.Count() == 0) return null;
 
         if (op == RuleOperator.And) {
@@ -259,7 +259,7 @@ public static class FilterPolicyExtensions {
     /// <summary>
     /// Generate an expression tree targeting an object type based on a given policy.
     /// </summary>
-    public static Expression<Func<T, bool>>? GetFilterExpression<T>(this FilterRuleCollection policy) {
+    public static Expression<Func<T, bool>>? GetPredicateExpression<T>(this FilterRuleCollection policy) {
 
         Expression<Func<T, bool>> truePredicate = x => true;
         Expression<Func<T, bool>> falsePredicate = x => false;
@@ -274,7 +274,7 @@ public static class FilterPolicyExtensions {
             if (expression != null) predicates.Add(expression);
         }
 
-        var first = policy.Rule?.GetFilterExpression<T>();
+        var first = policy.Rule?.GetPredicateExpression<T>();
         var second = CombinePredicates<T>(predicates, policy.RuleOperator);
 
         if (first == null && second == null) {

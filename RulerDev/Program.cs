@@ -31,9 +31,9 @@ var filterPolicy = new FilterPolicy
         ("User", "agency", "ODHS").ToFilterRule(),
         ("User", "agency", "OHA").ToFilterRule()
     },
-    RuleOperator = FilterPolicyExtensions.RuleOperator.Or
+    RuleOperator = PredicateExpressionPolicyExtensions.RuleOperator.Or
 };
-var filterExpression = filterPolicy.GetFilterExpression<User>();
+var filterExpression = filterPolicy.GetPredicateExpression<User>();
 filterPolicy.Dump(filterPolicy.Name);
 users.Where(filterExpression).Dump($"{filterPolicy.Name} operator {filterPolicy.RuleOperator}");
 
@@ -49,21 +49,21 @@ filterPolicy = new FilterPolicy
         ("User", "agency", "DAS").ToFilterRule()
     }
 };
-filterExpression = filterPolicy.GetFilterExpression<User>();
+filterExpression = filterPolicy.GetPredicateExpression<User>();
 filterPolicy.Dump(filterPolicy.Name);
 users.Where(filterExpression).Dump($"operator {filterPolicy.RuleOperator}");
 
 
 
-var dynamicFilterDAS = FilterPolicyExtensions.GetFilterExpressionForType<User>("agency", "DAS");
+var dynamicFilterDAS = PredicateExpressionPolicyExtensions.GetPredicateExpressionForType<User>("agency", "DAS");
 users.Where(dynamicFilterDAS).Dump("DAS users");
 
-var dynamicFilterBrian = FilterPolicyExtensions.GetFilterExpressionForType<User>("first","Brian");
+var dynamicFilterBrian = PredicateExpressionPolicyExtensions.GetPredicateExpressionForType<User>("first","Brian");
 
 var policies = new List<Expression<Func<User,bool>>>();
 policies.Add(dynamicFilterDAS);
 policies.Add(dynamicFilterBrian);
-var combined = FilterPolicyExtensions.CombineAnd(policies);
+var combined = PredicateExpressionPolicyExtensions.CombineAnd(policies);
 
 users.Where(dynamicFilterBrian).Dump("All *ian's");
 (from u in users.Where(combined)
