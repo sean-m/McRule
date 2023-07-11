@@ -12,8 +12,8 @@ public static class PredicateExpressionPolicyExtensions {
         Or
     }
 
-    public static FilterRule ToFilterRule(this (string, string, string) tuple) {
-        return new FilterRule(tuple);
+    public static ExpressionRule ToFilterRule(this (string, string, string) tuple) {
+        return new ExpressionRule(tuple);
     }
 
     /// <summary> 
@@ -259,7 +259,7 @@ public static class PredicateExpressionPolicyExtensions {
     /// <summary>
     /// Generate an expression tree targeting an object type based on a given policy.
     /// </summary>
-    public static Expression<Func<T, bool>>? GetPredicateExpression<T>(this FilterRuleCollection policy) {
+    public static Expression<Func<T, bool>>? GetPredicateExpression<T>(this ExpressionRuleCollection policy) {
 
         Expression<Func<T, bool>> truePredicate = x => true;
         Expression<Func<T, bool>> falsePredicate = x => false;
@@ -270,18 +270,17 @@ public static class PredicateExpressionPolicyExtensions {
             if (!(typeof(T).Name.Equals(rule.TargetType, StringComparison.CurrentCultureIgnoreCase))) {
                 continue;
             }
-            var expression = rule.GetFilterExpression<T>();
+            var expression = rule.GetExpression<T>();
             if (expression != null) predicates.Add(expression);
         }
 
-        var first = policy.Rule?.GetPredicateExpression<T>();
-        var second = CombinePredicates<T>(predicates, policy.RuleOperator);
+        var expressions = CombinePredicates<T>(predicates, policy.RuleOperator);
 
-        if (first == null && second == null) {
+        if (expressions == null) {
             System.Diagnostics.Debug.WriteLine($"No predicates available for type: <{typeof(T).Name}> in policy: {policy.Id}");
             return falsePredicate;
-        } else if (first != null && second == null) return first;
-        else if (first == null && second != null) return second;
-        else return CombinePredicates<T>(first, second, policy.RuleOperator);
+        }
+
+        return expressions;
     }
 }

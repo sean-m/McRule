@@ -4,11 +4,11 @@ using System.Text;
 
 namespace McRule {
 
-    public class FilterPolicy : FilterRuleCollection {
+    public class ExpressionPolicy : ExpressionRuleCollection {
         public Guid Id { get; set; }
         public string Name { get; set; }
         public string[] Properties { get; set; }
 
-        public FilterPolicy() : base() { }
+        public ExpressionPolicy() : base() { }
     }
 }

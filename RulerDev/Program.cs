@@ -20,11 +20,11 @@ var users = new List<User> {
 
 //users.Dump();
 
-var filterPolicy = new FilterPolicy
+var filterPolicy = new ExpressionPolicy
 {
     Name = "DHS or OHA",
     Properties = new string[] { }, // Can't do anything with this yet
-    Rules = new List<FilterRule>()
+    Rules = new List<ExpressionRule>()
     {
         ("User", "tags", "IT").ToFilterRule(),
         ("User", "agency", "ODHSOHA").ToFilterRule(),
@@ -39,11 +39,11 @@ users.Where(filterExpression).Dump($"{filterPolicy.Name} operator {filterPolicy.
 
 
 
-filterPolicy = new FilterPolicy
+filterPolicy = new ExpressionPolicy
 {
     Name = "All DAS *ians case sensitive",
     Properties = new string[] { }, // Can't do anything with this yet
-    Rules = new List<FilterRule>
+    Rules = new List<ExpressionRule>
     {
         ("User", "first", "*ian").ToFilterRule(), 
         ("User", "agency", "DAS").ToFilterRule()
@@ -53,11 +53,11 @@ filterExpression = filterPolicy.GetPredicateExpression<User>();
 filterPolicy.Dump(filterPolicy.Name);
 users.Where(filterExpression).Dump($"operator {filterPolicy.RuleOperator}");
 
-filterPolicy = new FilterPolicy
+filterPolicy = new ExpressionPolicy
 {
     Name = "All DAS *ians case insensitive",
     Properties = new string[] { }, // Can't do anything with this yet
-    Rules = new List<FilterRule>
+    Rules = new List<ExpressionRule>
     {
         ("User", "first", "~*ian").ToFilterRule(), 
         ("User", "agency", "DAS").ToFilterRule()

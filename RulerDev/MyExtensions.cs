@@ -122,14 +122,14 @@ public static class FilterRuleManager
 
 public class FilterRuleRepository
 {
-    private Dictionary<string, FilterRuleCollection> roleRuleMap { get; } =
-        new Dictionary<string, FilterRuleCollection>();
+    private Dictionary<string, ExpressionRuleCollection> roleRuleMap { get; } =
+        new Dictionary<string, ExpressionRuleCollection>();
 
-    public void AddRule(string role, FilterRuleCollection rule) => roleRuleMap.Add(role, rule);
+    public void AddRule(string role, ExpressionRuleCollection rule) => roleRuleMap.Add(role, rule);
     
-    public FilterRuleCollection? GetRule(string role)
+    public ExpressionRuleCollection? GetRule(string role)
     {
-        FilterRuleCollection result = null;
+        ExpressionRuleCollection result = null;
         roleRuleMap.TryGetValue(role, out result);
         return result;
     }
