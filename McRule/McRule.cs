@@ -256,8 +256,6 @@ public static class PredicateExpressionPolicyExtensions {
     /// </summary>
     public static Expression<Func<T, bool>>? GetPredicateExpression<T>(this ExpressionRuleCollection policy) {
 
-        Expression<Func<T, bool>> falsePredicate = x => false;
-
         var predicates = new List<Expression<Func<T, bool>>>();
         var typeName = typeof(T).Name;
         foreach (var rule in policy.Rules.Where(x => x.TargetType != null)) {
@@ -272,7 +270,7 @@ public static class PredicateExpressionPolicyExtensions {
 
         if (expressions == null) {
             System.Diagnostics.Debug.WriteLine($"No predicates available for type: <{typeof(T).Name}> in policy: {policy.Id}");
-            return falsePredicate;
+            return PredicateBuilder.False<T>();
         }
 
         return expressions;
