@@ -15,55 +15,67 @@ var users = new List<User> {
     new User("Fariborz", "Pakseresht","971-900-7335","503-555-1245", "500 Summer", "ODHS"),
     new User("Simon","Hayes","971-900-7335","503-555-1245", "3990 Fairview", "OHA"),
     new User("Tess","McArdle","971-555-7335","503-555-5555", "Home", "HomeSchool"),
-    new User("Ian", "McCloud","971-555-7335","503-555-5555", "Home", "HomeSchool")
+    new User("Ian", "McCloud","971-555-7335","503-555-5555", "Home", "DAS")
 }.AsQueryable();
 
 //users.Dump();
 
-var filterPolicy = new FilterPolicy
+var filterPolicy = new ExpressionPolicy
 {
     Name = "DHS or OHA",
     Properties = new string[] { }, // Can't do anything with this yet
-    Rules = new List<FilterRule>()
+    Rules = new List<ExpressionRule>()
     {
         ("User", "tags", "IT").ToFilterRule(),
         ("User", "agency", "ODHSOHA").ToFilterRule(),
         ("User", "agency", "ODHS").ToFilterRule(),
         ("User", "agency", "OHA").ToFilterRule()
     },
-    RuleOperator = FilterPolicyExtensions.RuleOperator.Or
+    RuleOperator = PredicateExpressionPolicyExtensions.RuleOperator.Or
 };
-var filterExpression = filterPolicy.GetFilterExpression<User>();
+var filterExpression = filterPolicy.GetPredicateExpression<User>();
 filterPolicy.Dump(filterPolicy.Name);
 users.Where(filterExpression).Dump($"{filterPolicy.Name} operator {filterPolicy.RuleOperator}");
 
 
 
-filterPolicy = new FilterPolicy
+filterPolicy = new ExpressionPolicy
 {
-    Name = "All DAS Brians",
+    Name = "All DAS *ians case sensitive",
     Properties = new string[] { }, // Can't do anything with this yet
-    Rules = new List<FilterRule>
+    Rules = new List<ExpressionRule>
+    {
+        ("User", "first", "*ian").ToFilterRule(), 
+        ("User", "agency", "DAS").ToFilterRule()
+    }
+};
+filterExpression = filterPolicy.GetPredicateExpression<User>();
+filterPolicy.Dump(filterPolicy.Name);
+users.Where(filterExpression).Dump($"operator {filterPolicy.RuleOperator}");
+
+filterPolicy = new ExpressionPolicy
+{
+    Name = "All DAS *ians case insensitive",
+    Properties = new string[] { }, // Can't do anything with this yet
+    Rules = new List<ExpressionRule>
     {
         ("User", "first", "~*ian").ToFilterRule(), 
         ("User", "agency", "DAS").ToFilterRule()
     }
 };
-filterExpression = filterPolicy.GetFilterExpression<User>();
+filterExpression = filterPolicy.GetPredicateExpression<User>();
 filterPolicy.Dump(filterPolicy.Name);
 users.Where(filterExpression).Dump($"operator {filterPolicy.RuleOperator}");
 
-
-
-var dynamicFilterDAS = FilterPolicyExtensions.GetFilterExpressionForType<User>("agency", "DAS");
+var dynamicFilterDAS = PredicateExpressionPolicyExtensions.GetPredicateExpressionForType<User>("agency", "DAS");
 users.Where(dynamicFilterDAS).Dump("DAS users");
 
-var dynamicFilterBrian = FilterPolicyExtensions.GetFilterExpressionForType<User>("first","Brian");
+var dynamicFilterBrian = PredicateExpressionPolicyExtensions.GetPredicateExpressionForType<User>("first","Brian");
 
 var policies = new List<Expression<Func<User,bool>>>();
 policies.Add(dynamicFilterDAS);
 policies.Add(dynamicFilterBrian);
-var combined = FilterPolicyExtensions.CombineAnd(policies);
+var combined = PredicateExpressionPolicyExtensions.CombineAnd(policies);
 
 users.Where(dynamicFilterBrian).Dump("All *ian's");
 (from u in users.Where(combined)

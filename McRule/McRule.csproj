@@ -8,7 +8,7 @@
     <UserSecretsId>63a98c68-03bd-4069-b6b9-e0978081c430</UserSecretsId>
     <GeneratePackageOnBuild>True</GeneratePackageOnBuild>
     <Title>McRule - Rule based expression generator</Title>
-		<Version>0.0.2</Version>
+		<Version>0.0.5</Version>
 		<Company>Sean McArdle</Company>
 		<Description>Library for generating expression trees from simple policy rules.</Description>
 		<Copyright>2023 Sean McArdle</Copyright>

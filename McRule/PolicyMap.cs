@@ -6,6 +6,6 @@ namespace McRule {
     public interface PolicyMap {
         string Name { get; }
         string Description { get; }
-        bool IsMatch(FilterPolicy policy);
+        Func<ExpressionPolicy,bool> IsMatch(ExpressionPolicy policy);
     }
 }
