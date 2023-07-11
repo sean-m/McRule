@@ -29,7 +29,8 @@ var filterPolicy = new ExpressionPolicy
         ("User", "tags", "IT").ToFilterRule(),
         ("User", "agency", "ODHSOHA").ToFilterRule(),
         ("User", "agency", "ODHS").ToFilterRule(),
-        ("User", "agency", "OHA").ToFilterRule()
+        ("User", "agency", "OHA").ToFilterRule(),
+        ("Group", "agency", "OHA").ToFilterRule(),
     },
     RuleOperator = PredicateExpressionPolicyExtensions.RuleOperator.Or
 };
