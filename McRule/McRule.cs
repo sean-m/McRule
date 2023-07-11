@@ -51,9 +51,6 @@ public static class PredicateExpressionPolicyExtensions {
             expression.Parameters); 
     } 
 
-
-
-
     /// <summary>
     /// Prepend the given predicate with a short circuiting null check.
     /// </summary>
@@ -180,7 +177,6 @@ public static class PredicateExpressionPolicyExtensions {
         return Expression.Lambda<Func<T, bool>>(comparison ?? Expression.Equal(opLeft, opRight), parameter);
     }
 
-
     static Expression<Func<T, bool>> GetArrayContainsExpression<T>(string property, object value) {
         // Bind to the property by name and make the constant value
         // we'll be passing into the Contains() call
@@ -216,7 +212,6 @@ public static class PredicateExpressionPolicyExtensions {
 
         return final;
     }
-
 
     /// <summary>
     /// Combine a list of expressions inclusively with an Or predicate
@@ -261,7 +256,6 @@ public static class PredicateExpressionPolicyExtensions {
     /// </summary>
     public static Expression<Func<T, bool>>? GetPredicateExpression<T>(this ExpressionRuleCollection policy) {
 
-        Expression<Func<T, bool>> truePredicate = x => true;
         Expression<Func<T, bool>> falsePredicate = x => false;
 
         var predicates = new List<Expression<Func<T, bool>>>();
