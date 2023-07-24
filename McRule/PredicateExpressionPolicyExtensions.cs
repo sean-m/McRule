@@ -27,8 +27,7 @@ public static class PredicateExpressionPolicyExtensions {
         if (!(filterType == "StartsWith" || filterType == "EndsWith" || filterType == "Contains" || filterType == "Equals")) 
         { 
             throw new Exception($"filterType must equal StartsWith, EndsWith or Contains. Passed {filterType}"); 
-        } 
-
+        }
 #endif
         // Check that the property isn't null, otherwise we'd hit null object exceptions at runtime
         var notNull = Expression.NotEqual(lambda.Body, Expression.Constant(null)); 

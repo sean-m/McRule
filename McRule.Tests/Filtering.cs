@@ -12,7 +12,7 @@ namespace McRule.Tests {
             new People("Ferris", "Student",   17,  true,  new[] {"muggle"}),
         };
 
-        public record People(string name, string kind, int number, bool stillWithUs, string[] tags = null);
+        public record People(string name, string kind, int? number, bool stillWithUs, string[] tags = null);
 
         ExpressionPolicy notSean = new ExpressionPolicy {
             Name = "Not named Sean",
@@ -175,6 +175,7 @@ namespace McRule.Tests {
 
         [Test]
         public void NullFilterWhenNoMatchingTypes() {
+            // Shouldn't have any filters in the policy for string objects.
             var filter = notQuiteDead.GetExpression<string>()?.Compile();
             
             Assert.Null(filter);
@@ -185,11 +186,11 @@ namespace McRule.Tests {
             var filter = deadOrViking.GetExpression<People>()?.Compile();
             var folks = things.Where(filter);
 
-            Assert.NotNull (folks);
+            Assert.NotNull(folks);
             Assert.NotNull(folks.Where(x => x.kind == "Viking" && x.stillWithUs == false));
             Assert.NotNull(folks.Where(x => x.kind == "Viking" && x.stillWithUs == true));
             
-            // Should be either a viking or dead, not neither
+            // Should be either a viking or dead, not neither.
             Assert.Null(folks.FirstOrDefault(x => x.kind != "Viking" && x.stillWithUs == true));
         }
     }
