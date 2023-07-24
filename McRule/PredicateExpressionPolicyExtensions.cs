@@ -27,8 +27,7 @@ public static class PredicateExpressionPolicyExtensions {
         if (!(filterType == "StartsWith" || filterType == "EndsWith" || filterType == "Contains" || filterType == "Equals")) 
         { 
             throw new Exception($"filterType must equal StartsWith, EndsWith or Contains. Passed {filterType}"); 
-        } 
-
+        }
 #endif
         // Check that the property isn't null, otherwise we'd hit null object exceptions at runtime
         var notNull = Expression.NotEqual(lambda.Body, Expression.Constant(null)); 
@@ -251,17 +250,6 @@ public static class PredicateExpressionPolicyExtensions {
             final = PredicateBuilder.Or(final, next);
 
         return final;
-    }
-
-    /// <summary>
-    /// Combine two given expressions based on a given enum.
-    /// </summary>
-    public static Expression<Func<T, bool>>? CombinePredicates<T>(Expression<Func<T, bool>> first, Expression<Func<T, bool>> second, PredicateExpressionPolicyExtensions.RuleOperator op) {
-        var predicates = new List<Expression<Func<T, bool>>> { first, second }.Where(x => x != null);
-        if (op == RuleOperator.And) {
-            return CombineAnd(predicates);
-        }
-        return CombineOr(predicates);
     }
 
     /// <summary>
