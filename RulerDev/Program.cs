@@ -88,7 +88,7 @@ var thePolicy = new ExpressionPolicy {
     Properties = new string[] { }, // Can't do anything with this yet
     Rules = new List<ExpressionRule>
     {
-        ("Thing", "Name", "!Sean").ToFilterRule(),
+        ("Thing", "name", "!Sean").ToFilterRule(),
     }
 };
 
@@ -97,7 +97,7 @@ filter.Dump();
 
 new[] { new Thing("Sean", "Confused"), new Thing("Tim", "Enchantor") }.Where(filter.Compile()).Dump();
 
-public record Thing(string Name, string Kind);
+public record Thing(string name, string kind, string[] tags = null);
 
 record User(string first, string last, string workPhone, string homePhone, string workAddress, string agency, string[] tags = null);
 
