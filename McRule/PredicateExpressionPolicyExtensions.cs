@@ -19,8 +19,8 @@ public static class PredicateExpressionPolicyExtensions {
     /// <summary> 
     /// Builds expressions using string member functions StartsWith, EndsWith or Contains as the comparator. 
     /// </summary> 
-    public static Expression<Func<T, bool>> AddStringPropertyExpression<T>( 
-        Expression<Func<T, string>> expression, string filter, string filterType, bool ignoreCase=false) 
+    public static Expression<Func<T, bool>> AddStringPropertyExpression<T>(
+        Expression<Func<T, string>> lambda, string filter, string filterType, bool ignoreCase = false) 
     { 
 
 #if DEBUG 
@@ -31,7 +31,7 @@ public static class PredicateExpressionPolicyExtensions {
 
 #endif
         // Check that the property isn't null, otherwise we'd hit null object exceptions at runtime
-        var notNull = Expression.NotEqual(expression.Body, Expression.Constant(null)); 
+        var notNull = Expression.NotEqual(lambda.Body, Expression.Constant(null)); 
 
         // Setup calls to: StartsWith, EndsWith, Contains, or Equals,
         // conditionally using character case neutral comparision.
@@ -42,13 +42,13 @@ public static class PredicateExpressionPolicyExtensions {
         }
 
         MethodInfo methodInfo = typeof(string).GetMethod(filterType, new[] { typeof(string), typeof(StringComparison) });
-        var strPredicate = Expression.Call(expression.Body, methodInfo, expressionArgs); 
+        var strPredicate = Expression.Call(lambda.Body, methodInfo, expressionArgs);
 
-        var filterExpression = Expression.AndAlso(notNull, strPredicate); 
+        Expression filterExpression = Expression.AndAlso(notNull, strPredicate); 
 
         return Expression.Lambda<Func<T, bool>>( 
             filterExpression, 
-            expression.Parameters); 
+            lambda.Parameters); 
     } 
 
     /// <summary>
@@ -69,8 +69,14 @@ public static class PredicateExpressionPolicyExtensions {
     /// <typeparam name="T"></typeparam>
     /// <param name="operand"></param>
     /// <returns></returns>
-    public static Expression<Func<T, bool>> Negate<T>(Expression operand) {
-        return Expression.Lambda<Func<T, bool>>(Expression.Not(operand));
+    public static Expression<Func<T, bool>> Negate<T>(Expression<Func<T, bool>> lambda) {
+        var body = lambda.Body;
+        var parameters = lambda.Parameters;
+
+        var negated = Expression.IsFalse(body);
+        return Expression.Lambda<Func<T, bool>>(
+            negated,
+            parameters);
     }
 
     /// <summary>
