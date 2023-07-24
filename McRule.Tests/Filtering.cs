@@ -2,17 +2,17 @@ namespace McRule.Tests {
     public class Filtering {
 
         People[] things = new[] { 
-            new People("Sean",   "Confused",  35,  new[] {"muggle"}),
-            new People("Sean",   "Actor",     90,  new[] {"muggle", "metallurgist"}),
-            new People("Bean",   "Runt",      20,  new[] {"muggle", "giant"}),
-            new People("Robin",  "Comedian",  63,  new[] {"muggle", "hilarious"}),
-            new People("Tim",    "Enchantor", 999, new[] {"magical", "grumpy"}),
-            new People("Ragnar", "Viking",    25,  new[] {"muggle", "grumpy"}),
-            new People("Lars",   "Viking",    30,  new[] {"muggle", "grumpy"}),
-            new People("Ferris", "Student",   17,  new[] {"muggle"}),
+            new People("Sean",   "Confused",  35,  true,  new[] {"muggle"}),
+            new People("Sean",   "Actor",     90,  false, new[] {"muggle", "metallurgist"}),
+            new People("Bean",   "Runt",      20,  false, new[] {"muggle", "giant"}),
+            new People("Robin",  "Comedian",  63,  false, new[] {"muggle", "hilarious"}),
+            new People("Tim",    "Enchantor", 999, false, new[] {"magical", "grumpy"}),
+            new People("Ragnar", "Viking",    25,  true,  new[] {"muggle", "grumpy"}),
+            new People("Lars",   "Viking",    30,  false, new[] {"muggle", "grumpy"}),
+            new People("Ferris", "Student",   17,  true,  new[] {"muggle"}),
         };
 
-        public record People(string name, string kind, int number, string[] tags = null);
+        public record People(string name, string kind, int number, bool stillWithUs, string[] tags = null);
 
         ExpressionPolicy notSean = new ExpressionPolicy {
             Name = "Not named Sean",
@@ -61,6 +61,23 @@ namespace McRule.Tests {
                 ("People", "tags", "muggle").ToFilterRule(),
             },
             RuleOperator = PredicateExpressionPolicyExtensions.RuleOperator.And
+        };
+
+        ExpressionPolicy notQuiteDead = new ExpressionPolicy {
+            Rules = new List<ExpressionRule>
+            {
+                ("People", "stillWithUs", "true").ToFilterRule(),
+            },
+            RuleOperator = PredicateExpressionPolicyExtensions.RuleOperator.And
+        };
+
+        ExpressionPolicy deadOrViking = new ExpressionPolicy {
+            Rules = new List<ExpressionRule>
+            {
+                ("People", "stillWithUs", "false").ToFilterRule(),
+                ("People", "kind", "Viking").ToFilterRule(),
+            },
+            RuleOperator = PredicateExpressionPolicyExtensions.RuleOperator.Or
         };
 
         [SetUp]
@@ -145,6 +162,35 @@ namespace McRule.Tests {
 
             Assert.NotNull(folks);
             Assert.IsTrue(folks.All(x => x.tags.Contains("muggle")));
+        }
+
+        [Test]
+        public void BoolConditional() {
+            var filter = notQuiteDead.GetExpression<People>()?.Compile();
+            var folks = things.Where(filter);
+
+            Assert.NotNull(folks);
+            Assert.IsTrue(folks.Count() > 0);
+        }
+
+        [Test]
+        public void NullFilterWhenNoMatchingTypes() {
+            var filter = notQuiteDead.GetExpression<string>()?.Compile();
+            
+            Assert.Null(filter);
+        }
+
+        [Test]
+        public void TestPolicyWithOrConditional() {
+            var filter = deadOrViking.GetExpression<People>()?.Compile();
+            var folks = things.Where(filter);
+
+            Assert.NotNull (folks);
+            Assert.NotNull(folks.Where(x => x.kind == "Viking" && x.stillWithUs == false));
+            Assert.NotNull(folks.Where(x => x.kind == "Viking" && x.stillWithUs == true));
+            
+            // Should be either a viking or dead, not neither
+            Assert.Null(folks.FirstOrDefault(x => x.kind != "Viking" && x.stillWithUs == true));
         }
     }
 }

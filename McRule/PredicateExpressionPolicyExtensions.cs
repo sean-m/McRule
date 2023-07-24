@@ -254,17 +254,6 @@ public static class PredicateExpressionPolicyExtensions {
     }
 
     /// <summary>
-    /// Combine two given expressions based on a given enum.
-    /// </summary>
-    public static Expression<Func<T, bool>>? CombinePredicates<T>(Expression<Func<T, bool>> first, Expression<Func<T, bool>> second, PredicateExpressionPolicyExtensions.RuleOperator op) {
-        var predicates = new List<Expression<Func<T, bool>>> { first, second }.Where(x => x != null);
-        if (op == RuleOperator.And) {
-            return CombineAnd(predicates);
-        }
-        return CombineOr(predicates);
-    }
-
-    /// <summary>
     /// Combine a list of expressions based on the given operator enum.
     /// </summary>
     public static Expression<Func<T, bool>>? CombinePredicates<T>(IEnumerable<Expression<Func<T, bool>>> predicates, PredicateExpressionPolicyExtensions.RuleOperator op) {
