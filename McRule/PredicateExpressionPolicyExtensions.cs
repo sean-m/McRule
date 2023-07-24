@@ -64,6 +64,16 @@ public static class PredicateExpressionPolicyExtensions {
     }
 
     /// <summary>
+    /// Applies negative predicate to expression in a lambda.
+    /// </summary>
+    /// <typeparam name="T"></typeparam>
+    /// <param name="operand"></param>
+    /// <returns></returns>
+    public static Expression<Func<T, bool>> Negate<T>(Expression operand) {
+        return Expression.Lambda<Func<T, bool>>(Expression.Not(operand));
+    }
+
+    /// <summary>
     /// Return a binary expression based on the given filter string. Default to a
     /// standard Equals comparison.
     /// </summary>
@@ -83,6 +93,7 @@ public static class PredicateExpressionPolicyExtensions {
                                        typeof(UInt16),  typeof(UInt32),  typeof(UInt64),
                                        typeof(Int16?),  typeof(Int32?),  typeof(Int64?),
                                        typeof(UInt16?), typeof(UInt32?), typeof(UInt64?)};
+
 
     /// <summary>
     /// Dynamically build an expression suitable for filtering in a Where clause
@@ -113,11 +124,19 @@ public static class PredicateExpressionPolicyExtensions {
 
 
         // For string comparisons using wildcards, trim the wildcard characters and pass to the comparison method
-        // For string comparisons using wildcards, trim the wildcard characters and pass to the comparison method
         if (lType == typeof(string)) 
-        { 
+        {
+            Expression<Func<T, bool>> result;
+
             // Grab the object property for use in the inner expression body
-            var strParam = Expression.Lambda<Func<T, string>>(opLeft, parameter); 
+            var strParam = Expression.Lambda<Func<T, string>>(opLeft, parameter);
+
+            // If a string match begins with !, we negate the result.
+            var negateResult = false;
+            if (value.StartsWith("!")) {
+                negateResult = true;
+                value = value.TrimStart('!');
+            }
 
             // String comparisons which are prefixed with '~' will be evaluated ignoring case.
             // Note: when expression trees are used outside .net, such as with EF to SQL Server,
@@ -127,25 +146,26 @@ public static class PredicateExpressionPolicyExtensions {
             if (value.StartsWith('~')) { 
                 ignoreCase = true; 
                 value = value.TrimStart('~'); 
-            } 
+            }
 
-            if (value.StartsWith("*") && value.EndsWith("*")) 
-            { 
-                return AddStringPropertyExpression<T>(strParam, value.Trim('*'), "Contains", ignoreCase); 
-            } 
-            else if (value.StartsWith("*")) 
-            { 
-                return AddStringPropertyExpression<T>(strParam, value.TrimStart('*'), "EndsWith", ignoreCase); 
-            } 
-            else if (value.EndsWith("*")) 
-            { 
-                return AddStringPropertyExpression<T>(strParam, value.TrimEnd('*'), "StartsWith", ignoreCase); 
-            } 
-            else
-            { 
-                return AddStringPropertyExpression<T>(strParam, value, "Equals", ignoreCase); 
-            } 
-        } else if (hasComparable == typeof(IComparable)) {
+            if (value.StartsWith("*") && value.EndsWith("*")) { 
+                result = AddStringPropertyExpression<T>(strParam, value.Trim('*'), "Contains", ignoreCase); 
+            } else if (value.StartsWith("*")) {
+                result = AddStringPropertyExpression<T>(strParam, value.TrimStart('*'), "EndsWith", ignoreCase); 
+            } else if (value.EndsWith("*")) {
+                result = AddStringPropertyExpression<T>(strParam, value.TrimEnd('*'), "StartsWith", ignoreCase); 
+            } else {
+                result = AddStringPropertyExpression<T>(strParam, value, "Equals", ignoreCase); 
+            }
+
+            if (negateResult) {
+                result = Negate<T>(result);
+            }
+
+            return result;
+        } 
+        else if (hasComparable == typeof(IComparable)) 
+        {
             var operatorPrefix = Regex.Match(value.Trim(), @"^[!<>=]+");
             var operand = (operatorPrefix.Success ? value.Replace(operatorPrefix.Value, "") : value).Trim();
 
