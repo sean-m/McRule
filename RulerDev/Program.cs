@@ -80,9 +80,24 @@ var combined = PredicateExpressionPolicyExtensions.CombineAnd(policies);
 
 users.Where(dynamicFilterBrian).Dump("All *ian's");
 (from u in users.Where(combined)
-    select new { u.first, u.last, u.agency}).Dump("All Brian's from DAS");
+    select new { u.first, u.last, u.agency}).Dump("All ian's from DAS");
 
 
+var thePolicy = new ExpressionPolicy {
+    Name = "All DAS *ians case insensitive",
+    Properties = new string[] { }, // Can't do anything with this yet
+    Rules = new List<ExpressionRule>
+    {
+        ("Thing", "Name", "!Sean").ToFilterRule(),
+    }
+};
+
+var filter = thePolicy.GetExpression<Thing>();
+filter.Dump();
+
+new[] { new Thing("Sean", "Confused"), new Thing("Tim", "Enchantor") }.Where(filter.Compile()).Dump();
+
+public record Thing(string Name, string Kind);
 
 record User(string first, string last, string workPhone, string homePhone, string workAddress, string agency, string[] tags = null);
 
