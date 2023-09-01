@@ -1,3 +1,8 @@
+using Newtonsoft.Json.Linq;
+using System.Linq.Expressions;
+using System.Reflection;
+using System.Reflection.Metadata;
+
 namespace McRule.Tests {
     public class Filtering {
 
@@ -192,6 +197,30 @@ namespace McRule.Tests {
             
             // Should be either a viking or dead, not neither.
             Assert.Null(folks.FirstOrDefault(x => x.kind != "Viking" && x.stillWithUs == true));
+        }
+
+        [Test]
+        public void PolicyEFExpressionShouldNotEmitComparisonTypeStringMatches() {
+            var filter = eans.GetPredicateExpression<People>();
+            var efFilter = eans.GetEFPredicateExpression<People>();
+
+            Assert.NotNull(filter);
+            Assert.NotNull(efFilter.ToString(), filter.ToString());
+            Assert.IsTrue(filter.ToString().Contains("CurrentCulture"));
+            Assert.IsFalse(efFilter.ToString().Contains("CurrentCulture"));
+        }
+
+        [Test]
+        public void InvalidStringFilterTypeShouldThrow() {
+            var parameter = Expression.Parameter(typeof(People), "x");
+            var opRight = Expression.Constant("foo");
+            var strParam = Expression.Lambda<Func<People, string>>(opRight, parameter);
+
+#if DEBUG
+            Assert.Throws(Is.TypeOf<Exception>()
+                .And.Message.EqualTo("filterType must equal StartsWith, EndsWith or Contains. Passed: NotAMatch"),
+                () => PredicateExpressionPolicyExtensions.AddStringPropertyExpression<People>(strParam, "foo", "NotAMatch"));
+#endif
         }
     }
 }

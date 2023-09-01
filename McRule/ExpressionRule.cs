@@ -20,6 +20,14 @@ namespace McRule {
                 ? PredicateExpressionPolicyExtensions.CombineOr<T>(expressions) 
                 : PredicateExpressionPolicyExtensions.CombineAnd<T>(expressions);
         }
+
+        public Expression<Func<T, bool>>? GetExpression<T>(ExpressionOptions options) {
+            var expressions = Rules.Select(x => x.GetExpression<T>(options));
+
+            return (RuleOperator == PredicateExpressionPolicyExtensions.RuleOperator.Or)
+                ? PredicateExpressionPolicyExtensions.CombineOr<T>(expressions)
+                : PredicateExpressionPolicyExtensions.CombineAnd<T>(expressions);
+        }
     }
 
     public class ExpressionRule : IExpressionRule {
@@ -56,6 +64,15 @@ namespace McRule {
             }
 
             return (Expression<Func<T, bool>>)cachedExpression;
+        }
+
+        /// <summary>
+        /// Returns an expression tree targeting an object type based on policy parameters.
+        /// </summary>	
+        public Expression<Func<T, bool>>? GetExpression<T>(ExpressionOptions options) {
+            if (!(typeof(T).Name.Equals(this.TargetType, StringComparison.CurrentCultureIgnoreCase))) return null;
+
+            return PredicateExpressionPolicyExtensions.GetPredicateExpressionForType<T>(this.Property, this.Value, options.SupportEF);
         }
 
         public override string ToString() {
