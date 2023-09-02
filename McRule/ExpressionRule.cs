@@ -35,8 +35,6 @@ namespace McRule {
 
         Expression? cachedExpression = null;
 
-        internal (string, string, string) Rule => (TargetType, Property, Value);
-
         public ExpressionRule() { }
 
         public ExpressionRule(string TargetType, string Property, string Value) {
@@ -78,7 +76,7 @@ namespace McRule {
         }
 
         public string GetFilterString<T>() {
-            return this.GetPredicateExpression<T>()?.ToString() ?? String.Empty;
+            return GetPredicateExpression<T>()?.ToString() ?? String.Empty;
         }
     }
 }

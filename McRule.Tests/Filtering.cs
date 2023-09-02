@@ -121,6 +121,9 @@ namespace McRule.Tests {
             RuleOperator = PredicateExpressionPolicyExtensions.RuleOperator.Or
         };
 
+        
+        FailedExpressionGeneratorBase failedGenerator = new FailedExpressionGeneratorBase();
+        
         [SetUp]
         public void Setup() { }
 
@@ -195,12 +198,24 @@ namespace McRule.Tests {
         }
 
         [Test]
-        public void FilterListOfObjectsByMemberCollectionContents() {
+        public void FilterListOfObjectsByMemberCollectionContents()
+        {
+            var generator = new PolicyToExpressionGenerator();
+            var generatedFilter = muggles.GetPredicateExpression<People>(generator);
+            var filteredFolks = things.Where(generatedFilter.Compile());
+            
+            var efGenerator = new PolicyToEFExpressionGenerator();
+            var efGeneratedFilter = muggles.GetPredicateExpression<People>(efGenerator);
+            var efFilteredFolks = things.Where(efGeneratedFilter.Compile());
+
+            
             var filter = muggles.GetPredicateExpression<People>()?.Compile();
             var folks = things.Where(filter);
 
             Assert.NotNull(folks);
             Assert.IsTrue(folks.All(x => x.tags.Contains("muggle")));
+            Assert.IsTrue(folks.All(x => filteredFolks.Contains(x)));
+            Assert.IsTrue(folks.All(x => efFilteredFolks.Contains(x)));
         }
 
         [Test]
@@ -244,6 +259,19 @@ namespace McRule.Tests {
             Assert.AreNotEqual(efFilter.ToString(), filter.ToString());
             Assert.IsTrue(filter.ToString().Contains("CurrentCulture"));
             Assert.IsFalse(efFilter.ToString().Contains("CurrentCulture"), "EF safe string comparision contains a CurrentCulture directive, wrong generator used for AddStringPropertyExpression.");
+        }
+
+        [Test]
+        public void BaseThrowsOnPoorlyImplementedGenerator()
+        {
+            Assert.Throws<NotImplementedException>(() => { _ = eans.GetPredicateExpression<People>(failedGenerator); });
+        }
+    }
+
+    internal class FailedExpressionGeneratorBase : ExpressionGeneratorBase
+    {
+        public FailedExpressionGeneratorBase()
+        {
         }
     }
 }
