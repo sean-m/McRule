@@ -241,9 +241,9 @@ namespace McRule.Tests {
             var efFilter = eans.GetPredicateExpression<People>(efGenerator);
 
             Assert.NotNull(filter);
-            Assert.NotNull(efFilter.ToString(), filter.ToString());
+            Assert.AreNotEqual(efFilter.ToString(), filter.ToString());
             Assert.IsTrue(filter.ToString().Contains("CurrentCulture"));
-            Assert.IsFalse(efFilter.ToString().Contains("CurrentCulture"));
+            Assert.IsFalse(efFilter.ToString().Contains("CurrentCulture"), "EF safe string comparision contains a CurrentCulture directive, wrong generator used for AddStringPropertyExpression.");
         }
     }
 }

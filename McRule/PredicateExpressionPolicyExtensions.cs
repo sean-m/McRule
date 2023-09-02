@@ -1,5 +1,4 @@
-﻿
-using System.Collections;
+﻿using System.Collections;
 using System.Diagnostics.Contracts;
 using System.Linq.Expressions;
 using System.Reflection;
@@ -149,12 +148,13 @@ public static partial class PredicateExpressionPolicyExtensions
     /// Builds expressions using string member functions StartsWith, EndsWith or Contains as the comparator. 
     /// </summary> 
     public static Expression<Func<T, bool>> AddStringPropertyExpression<T>(
-        Expression<Func<T, string>> lambda, string filter, string filterType, bool ignoreCase = false) {
-
+        Expression<Func<T, string>> lambda, string filter, string filterType, bool ignoreCase = false)
+    {
 #if DEBUG
-        if (!(filterType == "StartsWith" || filterType == "EndsWith" || filterType == "Contains" || filterType == "Equals")) 
-        { 
-            throw new Exception($"filterType must equal StartsWith, EndsWith or Contains. Passed: {filterType}"); 
+        if (!(filterType == "StartsWith" || filterType == "EndsWith" || filterType == "Contains" ||
+              filterType == "Equals"))
+        {
+            throw new Exception($"filterType must equal StartsWith, EndsWith or Contains. Passed: {filterType}");
         }
 #endif
         // Check that the property isn't null, otherwise we'd hit null object exceptions at runtime
@@ -163,14 +163,18 @@ public static partial class PredicateExpressionPolicyExtensions
         // Setup calls to: StartsWith, EndsWith, Contains, or Equals,
         // conditionally using character case neutral comparision.
         List<Expression> expressionArgs = new List<Expression>() { Expression.Constant(filter) };
-           
-        if (ignoreCase) {
+
+        if (ignoreCase)
+        {
             expressionArgs.Add(Expression.Constant(StringComparison.CurrentCultureIgnoreCase));
-        } else {
+        }
+        else
+        {
             expressionArgs.Add(Expression.Constant(StringComparison.CurrentCulture));
         }
-            
-        MethodInfo methodInfo = typeof(string).GetMethod(filterType, new[] { typeof(string), typeof(StringComparison) });
+
+        MethodInfo methodInfo =
+            typeof(string).GetMethod(filterType, new[] { typeof(string), typeof(StringComparison) });
         var strPredicate = Expression.Call(lambda.Body, methodInfo, expressionArgs);
 
         Expression filterExpression = Expression.AndAlso(notNull, strPredicate);
@@ -179,7 +183,7 @@ public static partial class PredicateExpressionPolicyExtensions
             filterExpression,
             lambda.Parameters);
     }
-    
+
     /// <summary>
     /// Dynamically build an expression suitable for filtering in a Where clause
     /// </summary>
@@ -301,41 +305,49 @@ public static partial class PredicateExpressionPolicyExtensions
 
         return Expression.Lambda<Func<T, bool>>(comparison ?? Expression.Equal(opLeft, opRight), parameter);
     }
-    
-    
+
+
     public static ExpressionGenerator GetCoreExpressionGenerator() => new PolicyToExpressionGenerator();
 
     public static ExpressionGenerator GetEfExpressionGenerator() => new PolicyToEFExpressionGenerator();
 }
 
-public class PolicyToExpressionGenerator : ExpressionGenerator
+public class PolicyToExpressionGenerator : ExpressionGeneratorBase
 {
     /// <summary> 
     /// Builds expressions using string member functions StartsWith, EndsWith or Contains as the comparator. 
     /// </summary> 
-    public static Expression<Func<T, bool>> AddStringPropertyExpression<T>(
-        Expression<Func<T, string>> lambda, string filter, string filterType, bool ignoreCase = false) {
+    public override Expression<Func<T, bool>> AddStringPropertyExpression<T>(
+        Expression<Func<T, string>> lambda, string filter, string filterType, bool ignoreCase = false)
+    {
+        return PredicateExpressionPolicyExtensions.AddStringPropertyExpression(lambda, filter, filterType, ignoreCase);
+    }
+}
 
+public class PolicyToEFExpressionGenerator : ExpressionGeneratorBase
+{
+    /// <summary> 
+    /// Builds expressions using string member functions StartsWith, EndsWith or Contains as the comparator. 
+    /// </summary> 
+    public override Expression<Func<T, bool>> AddStringPropertyExpression<T>(
+        Expression<Func<T, string>> lambda, string filter, string filterType, bool ignoreCase = false)
+    {
 #if DEBUG
-        if (!(filterType == "StartsWith" || filterType == "EndsWith" || filterType == "Contains" || filterType == "Equals")) 
-        { 
-            throw new Exception($"filterType must equal StartsWith, EndsWith or Contains. Passed: {filterType}"); 
+        if (!(filterType == "StartsWith" || filterType == "EndsWith" || filterType == "Contains" ||
+              filterType == "Equals"))
+        {
+            throw new Exception($"filterType must equal StartsWith, EndsWith or Contains. Passed: {filterType}");
         }
 #endif
         // Check that the property isn't null, otherwise we'd hit null object exceptions at runtime
         var notNull = Expression.NotEqual(lambda.Body, Expression.Constant(null));
+        MethodInfo methodInfo = typeof(string).GetMethod(filterType, new[] { typeof(string) });
+
 
         // Setup calls to: StartsWith, EndsWith, Contains, or Equals,
         // conditionally using character case neutral comparision.
         List<Expression> expressionArgs = new List<Expression>() { Expression.Constant(filter) };
-           
-        if (ignoreCase) {
-            expressionArgs.Add(Expression.Constant(StringComparison.CurrentCultureIgnoreCase));
-        } else {
-            expressionArgs.Add(Expression.Constant(StringComparison.CurrentCulture));
-        }
-            
-        MethodInfo methodInfo = typeof(string).GetMethod(filterType, new[] { typeof(string), typeof(StringComparison) });
+
         var strPredicate = Expression.Call(lambda.Body, methodInfo, expressionArgs);
 
         Expression filterExpression = Expression.AndAlso(notNull, strPredicate);
@@ -344,7 +356,16 @@ public class PolicyToExpressionGenerator : ExpressionGenerator
             filterExpression,
             lambda.Parameters);
     }
-    
+}
+
+public abstract class ExpressionGeneratorBase : ExpressionGenerator
+{
+    public virtual Expression<Func<T, bool>> AddStringPropertyExpression<T>(
+        Expression<Func<T, string>> lambda, string filter, string filterType, bool ignoreCase = false)
+    {
+        throw new NotImplementedException("Must override the AddStringPropertyExpression<T> method in a child class. This one is virtual and shouldn't ever be called."); 
+    }
+
     /// <summary>
     /// Dynamically build an expression suitable for filtering in a Where clause
     /// </summary>
@@ -467,12 +488,13 @@ public class PolicyToExpressionGenerator : ExpressionGenerator
         return Expression.Lambda<Func<T, bool>>(comparison ?? Expression.Equal(opLeft, opRight), parameter);
     }
 
-    
+
     /// <summary>
     /// Generate an expression tree targeting an object type based on a given policy.
     /// </summary>
     public Expression<Func<T, bool>>? GetPredicateExpression<T>(ExpressionRuleCollection policy)
     {
+        Expression<Func<T, bool>>? expressions = PredicateBuilder.False<T>();
 
         var predicates = new List<Expression<Func<T, bool>>>();
         var typeName = typeof(T).Name;
@@ -483,11 +505,11 @@ public class PolicyToExpressionGenerator : ExpressionGenerator
                 continue;
             }
 
-            var expression = rule.GetPredicateExpression<T>();
+            var expression = rule.GetPredicateExpression<T>(this);
             if (expression != null) predicates.Add(expression);
         }
 
-        var expressions = CombinePredicates<T>(predicates, policy.RuleOperator);
+        expressions = CombinePredicates<T>(predicates, policy.RuleOperator);
 
         if (expressions == null)
         {
@@ -497,189 +519,5 @@ public class PolicyToExpressionGenerator : ExpressionGenerator
         }
 
         return expressions;
-    }
-}
-public class PolicyToEFExpressionGenerator : ExpressionGenerator
-{
-
-    /// <summary>
-    /// Dynamically build an expression suitable for filtering in a Where clause
-    /// </summary>
-    public Expression<Func<T, bool>> GetPredicateExpressionForType<T>(string property, string value)
-    {
-        var parameter = Expression.Parameter(typeof(T), "x");
-        var opLeft = Expression.Property(parameter, property);
-        var opRight = Expression.Constant(value);
-        Expression? comparison = null;
-
-        // For IComparable types on the left hand side, attempt to parse the right hand side
-        // into the same type and use <,>,<=,>=,= prefixes to infer BinaryExpression type.
-        // Should work with numerical or datetime values provided they parse correctly.
-        // Note, a float on the right hand side will not parse into an integer type implicitly
-        // so it is parsed into a decimal value first and then rounded to the nearest integral.
-        var lType = opLeft.Type;
-        var isNullable = false;
-        Type? hasComparable = lType.GetInterface("IComparable");
-        Type? hasCollection = lType.GetInterface("ICollection");
-        if (hasComparable == null && opLeft.Type.IsValueType)
-        {
-            lType = Nullable.GetUnderlyingType(opLeft.Type);
-            // Nullable.GetUnderlyingType only returns a non-null value if the
-            // supplied type was indeed a nullable type.
-            if (lType != null)
-                isNullable = true;
-            hasComparable = lType.GetInterface("IComparable");
-        }
-
-
-        // For string comparisons using wildcards, trim the wildcard characters and pass to the comparison method
-        if (lType == typeof(string))
-        {
-            Expression<Func<T, bool>> result;
-
-            // Grab the object property for use in the inner expression body
-            var strParam = Expression.Lambda<Func<T, string>>(opLeft, parameter);
-
-            // If a string match begins with !, we negate the result.
-            var negateResult = false;
-            if (value.StartsWith("!"))
-            {
-                negateResult = true;
-                value = value.TrimStart('!');
-            }
-
-            // String comparisons which are prefixed with '~' will be evaluated ignoring case.
-            // Note: when expression trees are used outside .net, such as with EF to SQL Server,
-            // default case sensitivity for that environment may apply implicitly and counter to
-            // filter policy intent.
-            bool ignoreCase = false;
-            if (value.StartsWith('~'))
-            {
-                ignoreCase = true;
-                value = value.TrimStart('~');
-            }
-
-            if (value.StartsWith("*") && value.EndsWith("*"))
-            {
-                result = this.AddStringPropertyExpression<T>(strParam, value.Trim('*'), "Contains", ignoreCase);
-            }
-            else if (value.StartsWith("*"))
-            {
-                result = this.AddStringPropertyExpression<T>(strParam, value.TrimStart('*'), "EndsWith", ignoreCase);
-            }
-            else if (value.EndsWith("*"))
-            {
-                result = this.AddStringPropertyExpression<T>(strParam, value.TrimEnd('*'), "StartsWith", ignoreCase);
-            }
-            else
-            {
-                result = this.AddStringPropertyExpression<T>(strParam, value, "Equals", ignoreCase);
-            }
-
-            if (negateResult)
-            {
-                result = Negate<T>(result);
-            }
-
-            return result;
-        }
-        else if (hasComparable == typeof(IComparable))
-        {
-            var operatorPrefix = Regex.Match(value.Trim(), @"^[!<>=]+");
-            var operand = (operatorPrefix.Success ? value.Replace(operatorPrefix.Value, "") : value).Trim();
-
-            if (!String.IsNullOrEmpty(operand))
-            {
-                var parseMethod = lType.GetMethods().FirstOrDefault(x => x.Name == "Parse");
-                if (intTypes.Contains(opLeft.Type))
-                {
-                    operand = operand.Contains(".") ? Math.Round(decimal.Parse(operand)).ToString() : operand;
-                }
-
-                var opRightNumerical = parseMethod?.Invoke(null, new string[] { operand });
-
-                opRight = Expression.Constant(opRightNumerical);
-                Expression opLeftFinal = isNullable ? Expression.Convert(opLeft, lType) : opLeft;
-                comparison = GetComparer(operatorPrefix.Value.Trim(), opLeftFinal, opRight);
-            }
-        }
-        else if (hasCollection == typeof(ICollection))
-        {
-            return GetArrayContainsExpression<T>(property, value);
-        }
-        else
-        {
-            comparison = Expression.Equal(opLeft, opRight);
-        }
-
-        // If comparison is null that means we haven't been able to infer a good comparison
-        // expression for it so just defer to a false literal. 
-        Expression<Func<T, bool>> falsePredicate = x => false;
-        comparison = comparison == null ? falsePredicate : comparison;
-        if (isNullable)
-        {
-            comparison = AddNullCheck<T>(opLeft, comparison);
-        }
-
-        return Expression.Lambda<Func<T, bool>>(comparison ?? Expression.Equal(opLeft, opRight), parameter);
-    }
-
-    
-    /// <summary>
-    /// Generate an expression tree targeting an object type based on a given policy.
-    /// </summary>
-    public Expression<Func<T, bool>>? GetPredicateExpression<T>(ExpressionRuleCollection policy) {
-        
-        Expression<Func<T, bool>>? expressions = PredicateBuilder.False<T>();
-
-        var predicates = new List<Expression<Func<T, bool>>>();
-        var typeName = typeof(T).Name;
-        foreach (var rule in policy.Rules.Where(x => x.TargetType != null)) {
-            if (!(typeof(T).Name.Equals(rule.TargetType, StringComparison.CurrentCultureIgnoreCase))) {
-                continue;
-            }
-            var expression = rule.GetPredicateExpression<T>(this);
-            if (expression != null) predicates.Add(expression);
-        }
-
-        expressions = CombinePredicates<T>(predicates, policy.RuleOperator);
-
-        if (expressions == null) {
-            System.Diagnostics.Debug.WriteLine($"No predicates available for type: <{typeof(T).Name}> in policy: {policy.Id}");
-            return PredicateBuilder.False<T>();
-        }
-       
-        return expressions;
-    }
-
-    
-    /// <summary> 
-    /// Builds expressions using string member functions StartsWith, EndsWith or Contains as the comparator. 
-    /// </summary> 
-    public Expression<Func<T, bool>> AddStringPropertyExpression<T>(
-        Expression<Func<T, string>> lambda, string filter, string filterType, bool ignoreCase = false) {
-
-#if DEBUG
-        if (!(filterType == "StartsWith" || filterType == "EndsWith" || filterType == "Contains" || filterType == "Equals")) 
-        { 
-            throw new Exception($"filterType must equal StartsWith, EndsWith or Contains. Passed: {filterType}"); 
-        }
-#endif
-        // Check that the property isn't null, otherwise we'd hit null object exceptions at runtime
-        var notNull = Expression.NotEqual(lambda.Body, Expression.Constant(null));
-        MethodInfo methodInfo = typeof(string).GetMethod(filterType, new[] { typeof(string) });
-
-
-        // Setup calls to: StartsWith, EndsWith, Contains, or Equals,
-        // conditionally using character case neutral comparision.
-        List<Expression> expressionArgs = new List<Expression>() { Expression.Constant(filter) };
-
-        var strPredicate = Expression.Call(lambda.Body, methodInfo, expressionArgs);
-
-        Expression filterExpression = Expression.AndAlso(notNull, strPredicate);
-
-        return Expression.Lambda<Func<T, bool>>(
-            filterExpression,
-            lambda.Parameters);
     }
 }
