@@ -71,8 +71,12 @@ namespace McRule {
         /// </summary>	
         public Expression<Func<T, bool>>? GetExpression<T>(ExpressionOptions options) {
             if (!(typeof(T).Name.Equals(this.TargetType, StringComparison.CurrentCultureIgnoreCase))) return null;
+            
+            if (cachedExpression == null && !options.NoCache) {
+                cachedExpression = PredicateExpressionPolicyExtensions.GetPredicateExpressionForType<T>(this.Property, this.Value);
+            }
 
-            return PredicateExpressionPolicyExtensions.GetPredicateExpressionForType<T>(this.Property, this.Value, options.SupportEF);
+            return PredicateExpressionPolicyExtensions.GetPredicateExpressionForType<T>(this.Property, this.Value);
         }
 
         public override string ToString() {

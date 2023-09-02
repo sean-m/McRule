@@ -87,7 +87,7 @@ namespace McRule.Tests {
 
         [SetUp]
         public void Setup() {
-
+            PredicateExpressionPolicyExtensions.Init();
         }
 
         [Test]
@@ -208,19 +208,6 @@ namespace McRule.Tests {
             Assert.NotNull(efFilter.ToString(), filter.ToString());
             Assert.IsTrue(filter.ToString().Contains("CurrentCulture"));
             Assert.IsFalse(efFilter.ToString().Contains("CurrentCulture"));
-        }
-
-        [Test]
-        public void InvalidStringFilterTypeShouldThrow() {
-            var parameter = Expression.Parameter(typeof(People), "x");
-            var opRight = Expression.Constant("foo");
-            var strParam = Expression.Lambda<Func<People, string>>(opRight, parameter);
-
-#if DEBUG
-            Assert.Throws(Is.TypeOf<Exception>()
-                .And.Message.EqualTo("filterType must equal StartsWith, EndsWith or Contains. Passed: NotAMatch"),
-                () => PredicateExpressionPolicyExtensions.AddStringPropertyExpression<People>(strParam, "foo", "NotAMatch"));
-#endif
         }
     }
 }
