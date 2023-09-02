@@ -34,7 +34,7 @@ var filterPolicy = new ExpressionPolicy
     },
     RuleOperator = PredicateExpressionPolicyExtensions.RuleOperator.Or
 };
-var filterExpression = filterPolicy.GetPredicateExpression<User>();
+Expression<Func<User,bool>>? filterExpression = filterPolicy.GetPredicateExpression<User>();
 filterPolicy.Dump(filterPolicy.Name);
 users.Where(filterExpression).Dump($"{filterPolicy.Name} operator {filterPolicy.RuleOperator}");
 
@@ -92,13 +92,33 @@ var thePolicy = new ExpressionPolicy {
     }
 };
 
-var filter = thePolicy.GetExpression<Thing>();
+var filter = thePolicy.GetPredicateExpression<Thing>();
 filter.Dump();
 
 new[] { new Thing("Sean", "Confused"), new Thing("Tim", "Enchantor") }.Where(filter.Compile()).Dump();
 
 public record Thing(string name, string kind, string[] tags = null);
 
-record User(string first, string last, string workPhone, string homePhone, string workAddress, string agency, string[] tags = null);
+public class User
+{
+    public string first { get; init; }
+    public string last { get; init; }
+    public string workPhone { get; init; }
+    public string homePhone { get; init; }
+    public string workAddress { get; init; }
+    public string agency { get; init; }
+    public string[] tags { get; init; }
+
+    public User(string first, string last, string workPhone, string homePhone, string workAddress, string agency, string[] tags = null)
+    {
+        this.first = first;
+        this.last = last;
+        this.workPhone = workPhone;
+        this.homePhone = homePhone;
+        this.workAddress = workAddress;
+        this.agency = agency;
+        this.tags = tags ?? new string[0];
+    }
+}
 
 
