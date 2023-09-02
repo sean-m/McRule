@@ -12,5 +12,6 @@ namespace McRule {
 
     public interface ExpressionOptions {
         public bool SupportEF { get; }
+        public bool NoCache { get; }
     }
 }

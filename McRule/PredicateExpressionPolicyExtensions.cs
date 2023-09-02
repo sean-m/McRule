@@ -1,12 +1,14 @@
 ﻿
 using System.Collections;
+using System.Diagnostics.Contracts;
 using System.Linq.Expressions;
 using System.Reflection;
 using System.Text.RegularExpressions;
+using static McRule.PredicateExpressionPolicyExtensions;
 
 namespace McRule;
 
-public static class PredicateExpressionPolicyExtensions {
+public static partial class PredicateExpressionPolicyExtensions {
     public enum RuleOperator {
         And,
         Or
@@ -16,50 +18,14 @@ public static class PredicateExpressionPolicyExtensions {
         return new ExpressionRule(tuple);
     }
 
-    /// <summary> 
-    /// Builds expressions using string member functions StartsWith, EndsWith or Contains as the comparator. 
-    /// </summary> 
-    public static Expression<Func<T, bool>> AddStringPropertyExpression<T>(
-        Expression<Func<T, string>> lambda, string filter, string filterType, bool ignoreCase = false, bool supportEF = false) 
-    { 
+    internal delegate Expression<Func<T, bool>> AddStringPropertyExpression<T>(
+        Expression<Func<T, string>> lambda, string filter, string filterType, bool ignoreCase = false);
 
-#if DEBUG 
-        if (!(filterType == "StartsWith" || filterType == "EndsWith" || filterType == "Contains" || filterType == "Equals")) 
-        { 
-            throw new Exception($"filterType must equal StartsWith, EndsWith or Contains. Passed: {filterType}"); 
-        }
-#endif
-        // Check that the property isn't null, otherwise we'd hit null object exceptions at runtime
-        var notNull = Expression.NotEqual(lambda.Body, Expression.Constant(null));
-
-        // Setup calls to: StartsWith, EndsWith, Contains, or Equals,
-        // conditionally using character case neutral comparision.
-        List<Expression> expressionArgs = new List<Expression>() { Expression.Constant(filter) };
-        if (supportEF) {
-            ignoreCase = false;
-        } else {
-            if (ignoreCase) {
-                expressionArgs.Add(Expression.Constant(StringComparison.CurrentCultureIgnoreCase));
-            } else {
-                expressionArgs.Add(Expression.Constant(StringComparison.CurrentCulture));
-            }
-        }
-
-        MethodInfo methodInfo = supportEF ? typeof(string).GetMethod(filterType, new[] { typeof(string) })
-            : typeof(string).GetMethod(filterType, new[] { typeof(string), typeof(StringComparison) });
-        var strPredicate = Expression.Call(lambda.Body, methodInfo, expressionArgs);
-
-        Expression filterExpression = Expression.AndAlso(notNull, strPredicate); 
-
-        return Expression.Lambda<Func<T, bool>>( 
-            filterExpression, 
-            lambda.Parameters); 
-    } 
 
     /// <summary>
     /// Prepend the given predicate with a short circuiting null check.
     /// </summary>
-    public static Expression AddNullCheck<T>(
+    internal static Expression AddNullCheck<T>(
                             Expression left,
                             Expression expression) {
         // Check that the property isn't null, otherwise we'd hit null object exceptions at runtime
@@ -74,7 +40,7 @@ public static class PredicateExpressionPolicyExtensions {
     /// <typeparam name="T"></typeparam>
     /// <param name="operand"></param>
     /// <returns></returns>
-    public static Expression<Func<T, bool>> Negate<T>(Expression<Func<T, bool>> lambda) {
+    internal static Expression<Func<T, bool>> Negate<T>(Expression<Func<T, bool>> lambda) {
         var body = lambda.Body;
         var parameters = lambda.Parameters;
 
@@ -109,7 +75,7 @@ public static class PredicateExpressionPolicyExtensions {
     /// <summary>
     /// Dynamically build an expression suitable for filtering in a Where clause
     /// </summary>
-    public static Expression<Func<T, bool>> GetPredicateExpressionForType<T>(string property, string value, bool supportEF=false) {
+    public static Expression<Func<T, bool>> GetPredicateExpressionForType<T>(string property, string value) {
         var parameter = Expression.Parameter(typeof(T), "x");
         var opLeft = Expression.Property(parameter, property);
         var opRight = Expression.Constant(value);
@@ -160,13 +126,13 @@ public static class PredicateExpressionPolicyExtensions {
             }
 
             if (value.StartsWith("*") && value.EndsWith("*")) { 
-                result = AddStringPropertyExpression<T>(strParam, value.Trim('*'), "Contains", ignoreCase, supportEF); 
+                result = funcs.AddStringPropertyExpression<T>(strParam, value.Trim('*'), "Contains", ignoreCase); 
             } else if (value.StartsWith("*")) {
-                result = AddStringPropertyExpression<T>(strParam, value.TrimStart('*'), "EndsWith", ignoreCase, supportEF); 
+                result = funcs.AddStringPropertyExpression<T>(strParam, value.TrimStart('*'), "EndsWith", ignoreCase); 
             } else if (value.EndsWith("*")) {
-                result = AddStringPropertyExpression<T>(strParam, value.TrimEnd('*'), "StartsWith", ignoreCase, supportEF); 
+                result = funcs.AddStringPropertyExpression<T>(strParam, value.TrimEnd('*'), "StartsWith", ignoreCase); 
             } else {
-                result = AddStringPropertyExpression<T>(strParam, value, "Equals", ignoreCase, supportEF); 
+                result = funcs.AddStringPropertyExpression<T>(strParam, value, "Equals", ignoreCase); 
             }
 
             if (negateResult) {
@@ -216,7 +182,7 @@ public static class PredicateExpressionPolicyExtensions {
         var opRight = Expression.Constant(value);
 
         // Create generic method which is bound with the Call Expression below
-        var arrContainsRuntimeMethod = typeof(System.Linq.Enumerable).GetMethods()
+        var arrContainsRuntimeMethod = typeof(Enumerable).GetMethods()
             .Where(x => x.Name == "Contains")
             .Single(x => x.GetParameters().Length == 2)
             .MakeGenericMethod(value.GetType());
@@ -270,11 +236,15 @@ public static class PredicateExpressionPolicyExtensions {
         return CombineOr(predicates);
     }
 
+    private static CoreExtenionFunctions funcs;
 
     /// <summary>
     /// Generate an expression tree targeting an object type based on a given policy.
     /// </summary>
     public static Expression<Func<T, bool>>? GetPredicateExpression<T>(this ExpressionRuleCollection policy) {
+
+        CoreExtenionFunctions stdFuncs = new CoreExtensions();
+        if (funcs == null) funcs = stdFuncs;
 
         var predicates = new List<Expression<Func<T, bool>>>();
         var typeName = typeof(T).Name;
@@ -298,6 +268,7 @@ public static class PredicateExpressionPolicyExtensions {
 
     private class EfExpressionOptions : ExpressionOptions {
         public bool SupportEF => true;
+        public bool NoCache => true;
     }
     private static ExpressionOptions efExpressionOptions = new EfExpressionOptions();
 
@@ -306,23 +277,139 @@ public static class PredicateExpressionPolicyExtensions {
     /// </summary>
     public static Expression<Func<T, bool>>? GetEFPredicateExpression<T>(this ExpressionRuleCollection policy) {
 
-        var predicates = new List<Expression<Func<T, bool>>>();
-        var typeName = typeof(T).Name;
-        foreach (var rule in policy.Rules.Where(x => x.TargetType != null)) {
-            if (!(typeof(T).Name.Equals(rule.TargetType, StringComparison.CurrentCultureIgnoreCase))) {
-                continue;
-            }
-            var expression = rule.GetExpression<T>(efExpressionOptions);
-            if (expression != null) predicates.Add(expression);
+        CoreExtenionFunctions stdFuncs = new EFExtensions();
+        CoreExtenionFunctions prevFuncs = null;
+        if (funcs == null) {
+            System.Diagnostics.Trace.WriteLine($"Extension functions were not initialized, using standard functions and best effort EF support.");
+            funcs = stdFuncs;
+        } else {
+            // TODO don't do this at all, just instance the damn thing. EF safe-ish stuff should just be in a different namespace.
+            prevFuncs = funcs;
         }
 
-        var expressions = CombinePredicates<T>(predicates, policy.RuleOperator);
+        Expression<Func<T, bool>>? expressions = PredicateBuilder.False<T>();
 
-        if (expressions == null) {
-            System.Diagnostics.Debug.WriteLine($"No predicates available for type: <{typeof(T).Name}> in policy: {policy.Id}");
-            return PredicateBuilder.False<T>();
+        try { 
+            var predicates = new List<Expression<Func<T, bool>>>();
+            var typeName = typeof(T).Name;
+            foreach (var rule in policy.Rules.Where(x => x.TargetType != null)) {
+                if (!(typeof(T).Name.Equals(rule.TargetType, StringComparison.CurrentCultureIgnoreCase))) {
+                    continue;
+                }
+                var expression = rule.GetExpression<T>(efExpressionOptions);
+                if (expression != null) predicates.Add(expression);
+            }
+
+            expressions = CombinePredicates<T>(predicates, policy.RuleOperator);
+
+            if (expressions == null) {
+                System.Diagnostics.Debug.WriteLine($"No predicates available for type: <{typeof(T).Name}> in policy: {policy.Id}");
+                return PredicateBuilder.False<T>();
+            }
+        }
+        finally { 
+            if (prevFuncs != null) { funcs = prevFuncs; }
         }
 
         return expressions;
+    }
+
+    public static void Init() {
+        CoreExtenionFunctions stdFuncs = new CoreExtensions();
+        if (funcs == null) funcs = stdFuncs;
+    }
+
+    public static void SetExtensionFunctions(CoreExtenionFunctions functions) {
+        funcs = functions;
+    }
+
+
+    /*
+     * TODO This is a terrible pile of hacks and I should just refactor the whole dang thing because
+     * nobody is even using this yet so the API doesn't need to be stable...I just don't know really
+     * what the API should look like. Extension methods are nice to use, the shorthand they provide
+     * is pretty slick. I'm just not sure how to handle EF vs non-EF expressions. Perhaps different
+     * namespace? External library, there's one of those in the solution know but don't know if that
+     * will last.
+     * 
+     * The two features that conflict are case-sensitive vs insensitive matches. SQL defaults to the
+     * collation because string startswith, endswith and contains are all mapped to the Like function 
+     * by EF then translated to LIKE SQL, at that point it's up to the DB. If done externally in a 
+     * libary that depends on EF Core, it could map to the Like function and it's variants which
+     * will use ILIKE to force case-insensitive comparisions if desired. But, then the libary can't
+     * just be .netstandard 2.1. 
+     * 
+     * For right now delegates will have to do.
+     * 
+     * Good APIs are hard.
+     * */
+    internal class CoreExtensions : CoreExtenionFunctions {
+        /// <summary> 
+        /// Builds expressions using string member functions StartsWith, EndsWith or Contains as the comparator. 
+        /// </summary> 
+        public Expression<Func<T, bool>> AddStringPropertyExpression<T>(
+            Expression<Func<T, string>> lambda, string filter, string filterType, bool ignoreCase = false) {
+
+#if DEBUG
+        if (!(filterType == "StartsWith" || filterType == "EndsWith" || filterType == "Contains" || filterType == "Equals")) 
+        { 
+            throw new Exception($"filterType must equal StartsWith, EndsWith or Contains. Passed: {filterType}"); 
+        }
+#endif
+            // Check that the property isn't null, otherwise we'd hit null object exceptions at runtime
+            var notNull = Expression.NotEqual(lambda.Body, Expression.Constant(null));
+
+            // Setup calls to: StartsWith, EndsWith, Contains, or Equals,
+            // conditionally using character case neutral comparision.
+            List<Expression> expressionArgs = new List<Expression>() { Expression.Constant(filter) };
+           
+            if (ignoreCase) {
+                expressionArgs.Add(Expression.Constant(StringComparison.CurrentCultureIgnoreCase));
+            } else {
+                expressionArgs.Add(Expression.Constant(StringComparison.CurrentCulture));
+            }
+            
+            MethodInfo methodInfo = typeof(string).GetMethod(filterType, new[] { typeof(string), typeof(StringComparison) });
+            var strPredicate = Expression.Call(lambda.Body, methodInfo, expressionArgs);
+
+            Expression filterExpression = Expression.AndAlso(notNull, strPredicate);
+
+            return Expression.Lambda<Func<T, bool>>(
+                filterExpression,
+                lambda.Parameters);
+        }
+    }
+
+    internal class EFExtensions : CoreExtenionFunctions {
+
+        /// <summary> 
+        /// Builds expressions using string member functions StartsWith, EndsWith or Contains as the comparator. 
+        /// </summary> 
+        public Expression<Func<T, bool>> AddStringPropertyExpression<T>(
+            Expression<Func<T, string>> lambda, string filter, string filterType, bool ignoreCase = false) {
+
+#if DEBUG
+        if (!(filterType == "StartsWith" || filterType == "EndsWith" || filterType == "Contains" || filterType == "Equals")) 
+        { 
+            throw new Exception($"filterType must equal StartsWith, EndsWith or Contains. Passed: {filterType}"); 
+        }
+#endif
+            // Check that the property isn't null, otherwise we'd hit null object exceptions at runtime
+            var notNull = Expression.NotEqual(lambda.Body, Expression.Constant(null));
+            MethodInfo methodInfo = typeof(string).GetMethod(filterType, new[] { typeof(string) });
+
+
+            // Setup calls to: StartsWith, EndsWith, Contains, or Equals,
+            // conditionally using character case neutral comparision.
+            List<Expression> expressionArgs = new List<Expression>() { Expression.Constant(filter) };
+
+            var strPredicate = Expression.Call(lambda.Body, methodInfo, expressionArgs);
+
+            Expression filterExpression = Expression.AndAlso(notNull, strPredicate);
+
+            return Expression.Lambda<Func<T, bool>>(
+                filterExpression,
+                lambda.Parameters);
+        }
     }
 }
