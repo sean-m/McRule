@@ -14,7 +14,7 @@ namespace McRule {
         public ExpressionRuleCollection() { }
 
         public Expression<Func<T, bool>>? GetPredicateExpression<T>() {
-            var expressions = Rules.Select(x => x.GetPredicateExpression<T>());
+            var expressions = Rules.Select(x => x.GetPredicateExpression<T>()).Where(x => x != null);
 
             return (RuleOperator == PredicateExpressionPolicyExtensions.RuleOperator.Or) 
                 ? PredicateExpressionPolicyExtensions.CombineOr<T>(expressions) 
