@@ -17,7 +17,43 @@ namespace McRule.Tests {
             new People("Ferris", "Student",   17,  true,  new[] {"muggle"}),
         };
 
-        public record People(string name, string kind, int? number, bool stillWithUs, string[] tags = null);
+        public class People
+        {
+            public readonly string name;
+            public readonly string kind;
+            public readonly int? number;
+            public readonly bool stillWithUs;
+            public readonly string[] tags;
+
+            public People(string name, string kind, int? number, bool stillWithUs, string[] tags = null)
+            {
+                this.name = name;
+                this.kind = kind;
+                this.number = number;
+                this.stillWithUs = stillWithUs;
+                this.tags = tags;
+            }
+
+            public override bool Equals(object obj)
+            {
+                return obj is People other && 
+                       name == other.name && 
+                       kind == other.kind && 
+                       number == other.number && 
+                       stillWithUs == other.stillWithUs && 
+                       System.Linq.Enumerable.SequenceEqual(tags, other.tags);
+            }
+
+            public override int GetHashCode()
+            {
+                return System.HashCode.Combine(name, kind, number, stillWithUs, tags);
+            }
+
+            public override string ToString()
+            {
+                return $"People({name}, {kind}, {number}, {stillWithUs}, {string.Join(", ", tags ?? new string[0])})";
+            }
+        }
 
         ExpressionPolicy notSean = new ExpressionPolicy {
             Name = "Not named Sean",
