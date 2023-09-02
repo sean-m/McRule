@@ -19,11 +19,11 @@ namespace McRule.Tests {
 
         public class People
         {
-            public readonly string name;
-            public readonly string kind;
-            public readonly int? number;
-            public readonly bool stillWithUs;
-            public readonly string[] tags;
+            public string name { get; set; }
+            public string kind { get; set; }
+            public int? number { get; set; }
+            public bool stillWithUs { get; set; }
+            public string[] tags { get; set; }
 
             public People(string name, string kind, int? number, bool stillWithUs, string[] tags = null)
             {
@@ -122,13 +122,11 @@ namespace McRule.Tests {
         };
 
         [SetUp]
-        public void Setup() {
-            PredicateExpressionPolicyExtensions.Init();
-        }
+        public void Setup() { }
 
         [Test]
         public void NegativeStringMatch() {
-            var filter = notSean.GetExpression<People>()?.Compile();
+            var filter = notSean.GetPredicateExpression<People>()?.Compile();
             var folks = things.Where(filter);
 
             Assert.Null(folks.FirstOrDefault(x => x.name == "Sean"));
@@ -138,7 +136,7 @@ namespace McRule.Tests {
         public void EndsWith() {
             // Filter should match on people who's name ends in 'ean',
             // and case insensitive ends with 'EAN'.
-            var filter = eans.GetExpression<People>()?.Compile();
+            var filter = eans.GetPredicateExpression<People>()?.Compile();
             var folks = things.Where(filter);
 
             Assert.NotNull(folks);
@@ -153,7 +151,7 @@ namespace McRule.Tests {
                     youngens, vikings
                 },
                 RuleOperator = PredicateExpressionPolicyExtensions.RuleOperator.And
-            }?.GetExpression<People>()?.Compile();
+            }?.GetPredicateExpression<People>()?.Compile();
 
             var folks = things.Where(filter);
 
@@ -164,11 +162,11 @@ namespace McRule.Tests {
 
             // Process both expressions separately to verify they
             // have different results.
-            filter = youngens.GetExpression<People>()?.Compile();
+            filter = youngens.GetPredicateExpression<People>()?.Compile();
             folks = things.Where(filter);
             Assert.IsTrue(folks.Count() > 1);
 
-            filter = vikings.GetExpression<People>()?.Compile();
+            filter = vikings.GetPredicateExpression<People>()?.Compile();
             folks = things.Where(filter);
             Assert.IsTrue(folks.Count() > 1);
 
@@ -178,7 +176,7 @@ namespace McRule.Tests {
                     youngens, vikings
                 },
                 RuleOperator = PredicateExpressionPolicyExtensions.RuleOperator.Or
-            }?.GetExpression<People>()?.Compile();
+            }?.GetPredicateExpression<People>()?.Compile();
 
             folks = things.Where(filter);
             Assert.IsTrue(folks.Count() > 1);
@@ -198,7 +196,7 @@ namespace McRule.Tests {
 
         [Test]
         public void FilterListOfObjectsByMemberCollectionContents() {
-            var filter = muggles.GetExpression<People>()?.Compile();
+            var filter = muggles.GetPredicateExpression<People>()?.Compile();
             var folks = things.Where(filter);
 
             Assert.NotNull(folks);
@@ -207,7 +205,7 @@ namespace McRule.Tests {
 
         [Test]
         public void BoolConditional() {
-            var filter = notQuiteDead.GetExpression<People>()?.Compile();
+            var filter = notQuiteDead.GetPredicateExpression<People>()?.Compile();
             var folks = things.Where(filter);
 
             Assert.NotNull(folks);
@@ -217,14 +215,14 @@ namespace McRule.Tests {
         [Test]
         public void NullFilterWhenNoMatchingTypes() {
             // Shouldn't have any filters in the policy for string objects.
-            var filter = notQuiteDead.GetExpression<string>()?.Compile();
+            var filter = notQuiteDead.GetPredicateExpression<string>()?.Compile();
             
             Assert.Null(filter);
         }
 
         [Test]
         public void TestPolicyWithOrConditional() {
-            var filter = deadOrViking.GetExpression<People>()?.Compile();
+            var filter = deadOrViking.GetPredicateExpression<People>()?.Compile();
             var folks = things.Where(filter);
 
             Assert.NotNull(folks);
@@ -238,7 +236,9 @@ namespace McRule.Tests {
         [Test]
         public void PolicyEFExpressionShouldNotEmitComparisonTypeStringMatches() {
             var filter = eans.GetPredicateExpression<People>();
-            var efFilter = eans.GetEFPredicateExpression<People>();
+
+            var efGenerator = PredicateExpressionPolicyExtensions.GetEfExpressionGenerator();
+            var efFilter = eans.GetPredicateExpression<People>(efGenerator);
 
             Assert.NotNull(filter);
             Assert.NotNull(efFilter.ToString(), filter.ToString());
