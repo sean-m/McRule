@@ -197,7 +197,7 @@ namespace McRule.Tests {
         }
 
         [Test]
-        public void MugglesByTag() {
+        public void FilterListOfObjectsByMemberCollectionContents() {
             var filter = muggles.GetExpression<People>()?.Compile();
             var folks = things.Where(filter);
 
