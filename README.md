@@ -19,6 +19,20 @@ A simple equality comparison is used by default but operators can be prefixed to
 
 > Note: the IComparable interface is mostly used for numerical types but custom types with comparison providers may work at runtime.
 
+### Literal Values
+Literal values, as needed, use handlbar syntax: {{ value }}. Null checks are implicitly added to most expressions but sometimes you need an expression that evaluates true for null values. In that case, a null literal is represented as {{null}}.
+Case sensitivity doesn't matter, nor does internal whitespace inside the braces. Values are interpretted like so:
+```csharp
+var matched = handlebarPattern.Match(value);
+if (matched.Success) {
+    switch (matched.Groups.FirstOrDefault(x => x.Name == "literal")?.Value?.Trim()?.ToLower()) {
+        case "null":
+            return (true, new NullValue());
+            break;
+    }
+}
+```
+
 ### Examples
 
 

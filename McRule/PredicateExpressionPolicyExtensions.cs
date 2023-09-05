@@ -2,6 +2,7 @@
 using System.Diagnostics.Contracts;
 using System.Linq.Expressions;
 using System.Reflection;
+using System.Runtime.ExceptionServices;
 using System.Text.RegularExpressions;
 using static McRule.PredicateExpressionPolicyExtensions;
 
@@ -23,7 +24,7 @@ public static partial class PredicateExpressionPolicyExtensions
     /// <summary>
     /// Prepend the given predicate with a short circuiting null check.
     /// </summary>
-    internal static Expression AddNullCheck<T>(
+    internal static Expression AddNotNullCheck<T>(
         Expression left,
         Expression expression)
     {
@@ -31,6 +32,16 @@ public static partial class PredicateExpressionPolicyExtensions
         var notNull = Expression.NotEqual(left, Expression.Constant(null));
 
         return Expression.AndAlso(notNull, expression);
+    }
+
+    /// <summary>
+    /// Test for null value. This is used to test for null literals. 
+    /// </summary>
+    /// <typeparam name="T"></typeparam>
+    /// <param name="expression"></param>
+    /// <returns></returns>
+    internal static Expression IsNull<T>(Expression expression) {
+        return Expression.Equal(expression, Expression.Constant(null));
     }
 
     /// <summary>
@@ -92,7 +103,7 @@ public static partial class PredicateExpressionPolicyExtensions
         //LambdaExpression
         var containsCall = Expression.Call(arrContainsRuntimeMethod, opLeft, opRight);
 
-        var finalExpression = AddNullCheck<T>(opLeft, containsCall);
+        var finalExpression = AddNotNullCheck<T>(opLeft, containsCall);
 
         // Wrap it up in a warm lambda snuggie
         return Expression.Lambda<Func<T, bool>>(finalExpression, false, parameter);
@@ -184,6 +195,27 @@ public static partial class PredicateExpressionPolicyExtensions
             lambda.Parameters);
     }
 
+    static Regex handlebarPattern = new Regex(@"^(\{\{)(?<literal>.+)(\}\})", RegexOptions.ExplicitCapture
+                                                                        | RegexOptions.Compiled);
+    internal static (bool,LiteralValue?) GetStringValueLiteral(string value) {
+
+        /* Literal values are contained within handlebar syntax {{ literal }}
+         * so values should be added to the switch statement below. Matching
+         * cases should return early with their literal value.
+         * */
+        var matched = handlebarPattern.Match(value);
+        if (matched.Success) {
+            switch (matched.Groups.FirstOrDefault(x => x.Name == "literal")?.Value?.Trim()?.ToLower()) {
+                case "null":
+                    return (true, new NullValue());
+                    break;
+            }
+        }
+     
+        // No literals found.
+        return (false, null);
+    }
+
     /// <summary>
     /// Dynamically build an expression suitable for filtering in a Where clause
     /// </summary>
@@ -191,6 +223,7 @@ public static partial class PredicateExpressionPolicyExtensions
     {
         var parameter = Expression.Parameter(typeof(T), "x");
         var opLeft = Expression.Property(parameter, property);
+        (bool literalFound, LiteralValue? processedValue) = GetStringValueLiteral(value);
         var opRight = Expression.Constant(value);
         Expression? comparison = null;
 
@@ -213,6 +246,11 @@ public static partial class PredicateExpressionPolicyExtensions
             hasComparable = lType.GetInterface("IComparable");
         }
 
+        if (literalFound) {
+            if (processedValue is NullValue) {
+                return Expression.Lambda<Func<T, bool>>(IsNull<T>(opLeft), parameter);
+            }
+        }
 
         // For string comparisons using wildcards, trim the wildcard characters and pass to the comparison method
         if (lType == typeof(string))
@@ -264,9 +302,11 @@ public static partial class PredicateExpressionPolicyExtensions
             }
 
             return result;
+        } 
+        else if (hasCollection == typeof(ICollection)) {
+            return GetArrayContainsExpression<T>(property, value);
         }
-        else if (hasComparable == typeof(IComparable))
-        {
+        else if (hasComparable == typeof(IComparable)) {
             var operatorPrefix = Regex.Match(value.Trim(), @"^[!<>=]+");
             var operand = (operatorPrefix.Success ? value.Replace(operatorPrefix.Value, "") : value).Trim();
 
@@ -285,10 +325,6 @@ public static partial class PredicateExpressionPolicyExtensions
                 comparison = GetComparer(operatorPrefix.Value.Trim(), opLeftFinal, opRight);
             }
         }
-        else if (hasCollection == typeof(ICollection))
-        {
-            return GetArrayContainsExpression<T>(property, value);
-        }
         else
         {
             comparison = Expression.Equal(opLeft, opRight);
@@ -300,7 +336,7 @@ public static partial class PredicateExpressionPolicyExtensions
         comparison = comparison == null ? falsePredicate : comparison;
         if (isNullable)
         {
-            comparison = AddNullCheck<T>(opLeft, comparison);
+            comparison = AddNotNullCheck<T>(opLeft, comparison);
         }
 
         return Expression.Lambda<Func<T, bool>>(comparison ?? Expression.Equal(opLeft, opRight), parameter);
@@ -373,6 +409,7 @@ public abstract class ExpressionGeneratorBase : ExpressionGenerator
     {
         var parameter = Expression.Parameter(typeof(T), "x");
         var opLeft = Expression.Property(parameter, property);
+        (bool literalFound, LiteralValue? processedValue) = GetStringValueLiteral(value);
         var opRight = Expression.Constant(value);
         Expression? comparison = null;
 
@@ -385,14 +422,19 @@ public abstract class ExpressionGeneratorBase : ExpressionGenerator
         var isNullable = false;
         Type? hasComparable = lType.GetInterface("IComparable");
         Type? hasCollection = lType.GetInterface("ICollection");
-        if (hasComparable == null && opLeft.Type.IsValueType)
-        {
+        if (hasComparable == null && opLeft.Type.IsValueType) {
             lType = Nullable.GetUnderlyingType(opLeft.Type);
             // Nullable.GetUnderlyingType only returns a non-null value if the
             // supplied type was indeed a nullable type.
             if (lType != null)
                 isNullable = true;
             hasComparable = lType.GetInterface("IComparable");
+        }
+
+        if (literalFound) {
+            if (processedValue == null) {
+                return Expression.Lambda<Func<T, bool>>(IsNull<T>(opLeft), parameter);
+            }
         }
 
 
@@ -482,7 +524,7 @@ public abstract class ExpressionGeneratorBase : ExpressionGenerator
         comparison = comparison == null ? falsePredicate : comparison;
         if (isNullable)
         {
-            comparison = AddNullCheck<T>(opLeft, comparison);
+            comparison = AddNotNullCheck<T>(opLeft, comparison);
         }
 
         return Expression.Lambda<Func<T, bool>>(comparison ?? Expression.Equal(opLeft, opRight), parameter);
