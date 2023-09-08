@@ -3,32 +3,33 @@ using System.Collections.Generic;
 using System.Linq.Expressions;
 using System.Text;
 
+using static McRule.PredicateExpressionPolicyExtensions;
+
 namespace McRule {
 
-    public class ExpressionRuleCollection : IExpressionRule {
+    public class ExpressionRuleCollection : IExpressionRuleCollection, IExpressionPolicy {
         public Guid Id { get; set; } = Guid.NewGuid();
-        public PredicateExpressionPolicyExtensions.RuleOperator RuleOperator { get; set; } = PredicateExpressionPolicyExtensions.RuleOperator.And;
-        public IEnumerable<IExpressionRule> Rules { get; set; }
+        public string Name { get; set; }
+        public RuleOperator RuleOperator { get; set; } = RuleOperator.And;
+        public IEnumerable<IExpressionPolicy> Rules { get; set; }
         public string TargetType { get; set; }
 
         public ExpressionRuleCollection() { }
 
         public Expression<Func<T, bool>>? GetPredicateExpression<T>() {
-            var expressions = Rules.Select(x => x.GetPredicateExpression<T>()).Where(x => x != null);
+            var gen = PredicateExpressionPolicyExtensions.GetCoreExpressionGenerator();
 
-            return (RuleOperator == PredicateExpressionPolicyExtensions.RuleOperator.Or) 
-                ? PredicateExpressionPolicyExtensions.CombineOr<T>(expressions) 
-                : PredicateExpressionPolicyExtensions.CombineAnd<T>(expressions);
+            return GeneratePredicateExpression<T>(gen);
         }
 
-        public Expression<Func<T, bool>>? GetPredicateExpression<T>(ExpressionGenerator generator)
+        public Expression<Func<T, bool>>? GeneratePredicateExpression<T>(ExpressionGenerator generator)
         {
             var expressions = generator.GetPredicateExpression<T>(this);
             return expressions;
         }
     }
 
-    public class ExpressionRule : IExpressionRule {
+    public class ExpressionRule : IExpressionRule, IExpressionPolicy {
         public string TargetType { get; set; }
         public string Property { get; set; }
         public string Value { get; set; }
@@ -56,7 +57,7 @@ namespace McRule {
             if (!(typeof(T).Name.Equals(this.TargetType, StringComparison.CurrentCultureIgnoreCase))) return null;
 
             if (cachedExpression == null) {
-                cachedExpression = PredicateExpressionPolicyExtensions.GetPredicateExpressionForType<T>(this.Property, this.Value);
+                cachedExpression = GetCoreExpressionGenerator().GetPredicateExpressionForType<T>(this.Property, this.Value);
             }
 
             return (Expression<Func<T, bool>>)cachedExpression;
@@ -65,7 +66,7 @@ namespace McRule {
         /// <summary>
         /// Returns an expression tree targeting an object type based on policy parameters.
         /// </summary>	
-        public Expression<Func<T, bool>>? GetPredicateExpression<T>(ExpressionGenerator generator) {
+        public Expression<Func<T, bool>>? GeneratePredicateExpression<T>(ExpressionGenerator generator) {
             if (!(typeof(T).Name.Equals(this.TargetType, StringComparison.CurrentCultureIgnoreCase))) return null;
 
             return generator.GetPredicateExpressionForType<T>(this.Property, this.Value);

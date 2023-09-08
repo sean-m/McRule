@@ -105,7 +105,7 @@ public static class FilterRuleManager
             return sequence.Where(x => false);
         }
         
-        var predicates = PredicateExpressionPolicyExtensions.CombinePredicates(rules, PredicateExpressionPolicyExtensions.RuleOperator.And).Compile();
+        var predicates = PredicateExpressionPolicyExtensions.CombinePredicates(rules, RuleOperator.And).Compile();
         return sequence.Where(predicates);
     }
     

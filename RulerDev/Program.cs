@@ -4,8 +4,9 @@ using System;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Collections.Generic;
-
+using static McRule.PredicateExpressionPolicyExtensions;
 using static RulerDev.MyExtensions;
+
 
 var users = new List<User> {
     new User("Sean","McArdle","971-900-7335","503-555-1245", "SDC", "DAS", new string[] {"IT", "Admin"}),
@@ -32,7 +33,7 @@ var filterPolicy = new ExpressionPolicy
         ("User", "agency", "OHA").ToFilterRule(),
         ("Group", "agency", "OHA").ToFilterRule(),
     },
-    RuleOperator = PredicateExpressionPolicyExtensions.RuleOperator.Or
+    RuleOperator = RuleOperator.Or
 };
 Expression<Func<User,bool>>? filterExpression = filterPolicy.GetPredicateExpression<User>();
 filterPolicy.Dump(filterPolicy.Name);
@@ -68,10 +69,10 @@ filterExpression = filterPolicy.GetPredicateExpression<User>();
 filterPolicy.Dump(filterPolicy.Name);
 users.Where(filterExpression).Dump($"operator {filterPolicy.RuleOperator}");
 
-var dynamicFilterDAS = PredicateExpressionPolicyExtensions.GetPredicateExpressionForType<User>("agency", "DAS");
+var dynamicFilterDAS = GetCoreExpressionGenerator().GetPredicateExpressionForType<User>("agency", "DAS");
 users.Where(dynamicFilterDAS).Dump("DAS users");
 
-var dynamicFilterBrian = PredicateExpressionPolicyExtensions.GetPredicateExpressionForType<User>("first","Brian");
+var dynamicFilterBrian = GetCoreExpressionGenerator().GetPredicateExpressionForType<User>("first","Brian");
 
 var policies = new List<Expression<Func<User,bool>>>();
 policies.Add(dynamicFilterDAS);

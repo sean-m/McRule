@@ -8,14 +8,13 @@ using static McRule.PredicateExpressionPolicyExtensions;
 
 namespace McRule;
 
+public enum RuleOperator {
+    And,
+    Or
+}
+
 public static partial class PredicateExpressionPolicyExtensions
 {
-    public enum RuleOperator
-    {
-        And,
-        Or
-    }
-
     public static ExpressionRule ToFilterRule(this (string, string, string) tuple)
     {
         return new ExpressionRule(tuple);
@@ -143,7 +142,7 @@ public static partial class PredicateExpressionPolicyExtensions
     /// Combine a list of expressions based on the given operator enum.
     /// </summary>
     public static Expression<Func<T, bool>>? CombinePredicates<T>(IEnumerable<Expression<Func<T, bool>>> predicates,
-        PredicateExpressionPolicyExtensions.RuleOperator op)
+        RuleOperator op)
     {
         if (predicates.Count() == 0) return null;
 
@@ -215,133 +214,6 @@ public static partial class PredicateExpressionPolicyExtensions
         // No literals found.
         return (false, null);
     }
-
-    /// <summary>
-    /// Dynamically build an expression suitable for filtering in a Where clause
-    /// </summary>
-    public static Expression<Func<T, bool>> GetPredicateExpressionForType<T>(string property, string value)
-    {
-        var parameter = Expression.Parameter(typeof(T), "x");
-        var opLeft = Expression.Property(parameter, property);
-        (bool literalFound, LiteralValue? processedValue) = GetStringValueLiteral(value);
-        var opRight = Expression.Constant(value);
-        Expression? comparison = null;
-
-        // For IComparable types on the left hand side, attempt to parse the right hand side
-        // into the same type and use <,>,<=,>=,= prefixes to infer BinaryExpression type.
-        // Should work with numerical or datetime values provided they parse correctly.
-        // Note, a float on the right hand side will not parse into an integer type implicitly
-        // so it is parsed into a decimal value first and then rounded to the nearest integral.
-        var lType = opLeft.Type;
-        var isNullable = false;
-        Type? hasComparable = lType.GetInterface("IComparable");
-        Type? hasCollection = lType.GetInterface("ICollection");
-        if (hasComparable == null && opLeft.Type.IsValueType)
-        {
-            lType = Nullable.GetUnderlyingType(opLeft.Type);
-            // Nullable.GetUnderlyingType only returns a non-null value if the
-            // supplied type was indeed a nullable type.
-            if (lType != null)
-                isNullable = true;
-            hasComparable = lType.GetInterface("IComparable");
-        }
-
-        if (literalFound) {
-            if (processedValue is NullValue) {
-                return Expression.Lambda<Func<T, bool>>(IsNull<T>(opLeft), parameter);
-            }
-        }
-
-        // For string comparisons using wildcards, trim the wildcard characters and pass to the comparison method
-        if (lType == typeof(string))
-        {
-            Expression<Func<T, bool>> result;
-
-            // Grab the object property for use in the inner expression body
-            var strParam = Expression.Lambda<Func<T, string>>(opLeft, parameter);
-
-            // If a string match begins with !, we negate the result.
-            var negateResult = false;
-            if (value.StartsWith("!"))
-            {
-                negateResult = true;
-                value = value.TrimStart('!');
-            }
-
-            // String comparisons which are prefixed with '~' will be evaluated ignoring case.
-            // Note: when expression trees are used outside .net, such as with EF to SQL Server,
-            // default case sensitivity for that environment may apply implicitly and counter to
-            // filter policy intent.
-            bool ignoreCase = false;
-            if (value.StartsWith('~'))
-            {
-                ignoreCase = true;
-                value = value.TrimStart('~');
-            }
-
-            if (value.StartsWith("*") && value.EndsWith("*"))
-            {
-                result = AddStringPropertyExpression<T>(strParam, value.Trim('*'), "Contains", ignoreCase);
-            }
-            else if (value.StartsWith("*"))
-            {
-                result = AddStringPropertyExpression<T>(strParam, value.TrimStart('*'), "EndsWith", ignoreCase);
-            }
-            else if (value.EndsWith("*"))
-            {
-                result = AddStringPropertyExpression<T>(strParam, value.TrimEnd('*'), "StartsWith", ignoreCase);
-            }
-            else
-            {
-                result = AddStringPropertyExpression<T>(strParam, value, "Equals", ignoreCase);
-            }
-
-            if (negateResult)
-            {
-                result = Negate<T>(result);
-            }
-
-            return result;
-        } 
-        else if (hasCollection == typeof(ICollection)) {
-            return GetArrayContainsExpression<T>(property, value);
-        }
-        else if (hasComparable == typeof(IComparable)) {
-            var operatorPrefix = Regex.Match(value.Trim(), @"^[!<>=]+");
-            var operand = (operatorPrefix.Success ? value.Replace(operatorPrefix.Value, "") : value).Trim();
-
-            if (!String.IsNullOrEmpty(operand))
-            {
-                var parseMethod = lType.GetMethods().FirstOrDefault(x => x.Name == "Parse");
-                if (intTypes.Contains(opLeft.Type))
-                {
-                    operand = operand.Contains(".") ? Math.Round(decimal.Parse(operand)).ToString() : operand;
-                }
-
-                var opRightNumerical = parseMethod?.Invoke(null, new string[] { operand });
-
-                opRight = Expression.Constant(opRightNumerical);
-                Expression opLeftFinal = isNullable ? Expression.Convert(opLeft, lType) : opLeft;
-                comparison = GetComparer(operatorPrefix.Value.Trim(), opLeftFinal, opRight);
-            }
-        }
-        else
-        {
-            comparison = Expression.Equal(opLeft, opRight);
-        }
-
-        // If comparison is null that means we haven't been able to infer a good comparison
-        // expression for it so just defer to a false literal. 
-        Expression<Func<T, bool>> falsePredicate = x => false;
-        comparison = comparison == null ? falsePredicate : comparison;
-        if (isNullable)
-        {
-            comparison = AddNotNullCheck<T>(opLeft, comparison);
-        }
-
-        return Expression.Lambda<Func<T, bool>>(comparison ?? Expression.Equal(opLeft, opRight), parameter);
-    }
-
 
     public static ExpressionGenerator GetCoreExpressionGenerator() => new PolicyToExpressionGenerator();
 
@@ -534,21 +406,16 @@ public abstract class ExpressionGeneratorBase : ExpressionGenerator
     /// <summary>
     /// Generate an expression tree targeting an object type based on a given policy.
     /// </summary>
-    public Expression<Func<T, bool>>? GetPredicateExpression<T>(ExpressionRuleCollection policy)
+    public Expression<Func<T, bool>>? GetPredicateExpression<T>(IExpressionRuleCollection policy)
     {
         Expression<Func<T, bool>>? expressions = PredicateBuilder.False<T>();
 
         var predicates = new List<Expression<Func<T, bool>>>();
-        var typeName = typeof(T).Name;
-        foreach (var rule in policy.Rules.Where(x => x.TargetType != null))
+        var selectedType = typeof(T);
+        foreach (var rule in policy.Rules)
         {
-            if (!(typeof(T).Name.Equals(rule.TargetType, StringComparison.CurrentCultureIgnoreCase)))
-            {
-                continue;
-            }
-
-            var expression = rule.GetPredicateExpression<T>(this);
-            if (expression != null) predicates.Add(expression);
+            var expression = GetPredicateExpression<T>(rule);
+            if (expression != null) { predicates.Add(expression); }
         }
 
         expressions = CombinePredicates<T>(predicates, policy.RuleOperator);
@@ -556,10 +423,28 @@ public abstract class ExpressionGeneratorBase : ExpressionGenerator
         if (expressions == null)
         {
             System.Diagnostics.Debug.WriteLine(
-                $"No predicates available for type: <{typeof(T).Name}> in policy: {policy.Id}");
-            return PredicateBuilder.False<T>();
+                $"No predicates available for type: <{selectedType.Name}> in policy: {policy.Id}");
+            throw new ExpressionGeneratorException($"No filter expressions found for type: {selectedType.Name}  FullName: {selectedType.FullName}");
         }
 
         return expressions;
+    }
+
+    public Expression<Func<T, bool>>? GetPredicateExpression<T>(IExpressionPolicy policy) {
+
+        return policy.GeneratePredicateExpression<T>(this);
+    }
+
+    public Expression<Func<T, bool>>? GetPredicateExpression<T>(IExpressionRule rule) {
+        if (!string.Equals(typeof(T).Name, rule.TargetType, StringComparison.CurrentCultureIgnoreCase)) return null;
+
+        return GetPredicateExpressionForType<T>(rule.Property, rule.Value);
+    }
+
+    public Expression<Func<T, bool>>? GetPredicateExpressionOrFalse<T>(IExpressionPolicy policy) {
+        var expression = PredicateBuilder.False<T>();
+        try { expression = GetPredicateExpression<T>(policy); }
+        catch { /* Yeah, that didn't work. */ }
+        return expression;
     }
 }

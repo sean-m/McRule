@@ -93,7 +93,7 @@ namespace McRule.Tests {
                 ("People", "name", "*ean").ToFilterRule(),
                 ("People", "name", "~*EAN").ToFilterRule(),
             },
-            RuleOperator = PredicateExpressionPolicyExtensions.RuleOperator.And
+            RuleOperator = RuleOperator.And
         };
 
         ExpressionPolicy youngens = new ExpressionPolicy {
@@ -104,7 +104,7 @@ namespace McRule.Tests {
                 ("People", "number", ">=17").ToFilterRule(),
                 ("People", "number", "<30").ToFilterRule(),
             },
-            RuleOperator = PredicateExpressionPolicyExtensions.RuleOperator.And
+            RuleOperator = RuleOperator.And
         };
 
         ExpressionPolicy vikings = new ExpressionPolicy {
@@ -113,7 +113,7 @@ namespace McRule.Tests {
             {
                 ("People", "kind", "~viking").ToFilterRule(),
             },
-            RuleOperator = PredicateExpressionPolicyExtensions.RuleOperator.And
+            RuleOperator = RuleOperator.And
         };
 
         ExpressionPolicy muggles = new ExpressionPolicy {
@@ -122,7 +122,7 @@ namespace McRule.Tests {
             {
                 ("People", "tags", "muggle").ToFilterRule(),
             },
-            RuleOperator = PredicateExpressionPolicyExtensions.RuleOperator.And
+            RuleOperator = RuleOperator.And
         };
 
         ExpressionPolicy notQuiteDead = new ExpressionPolicy {
@@ -130,7 +130,7 @@ namespace McRule.Tests {
             {
                 ("People", "stillWithUs", "true").ToFilterRule(),
             },
-            RuleOperator = PredicateExpressionPolicyExtensions.RuleOperator.And
+            RuleOperator = RuleOperator.And
         };
 
         ExpressionPolicy deadOrViking = new ExpressionPolicy {
@@ -139,7 +139,7 @@ namespace McRule.Tests {
                 ("People", "stillWithUs", "false").ToFilterRule(),
                 ("People", "kind", "Viking").ToFilterRule(),
             },
-            RuleOperator = PredicateExpressionPolicyExtensions.RuleOperator.Or
+            RuleOperator = RuleOperator.Or
         };
 
         #endregion  testPolicies
@@ -156,7 +156,7 @@ namespace McRule.Tests {
 
             // Test using EF generator
             var efGenerator = PredicateExpressionPolicyExtensions.GetEfExpressionGenerator();
-            var efFilter = matchNullLiteral.GetPredicateExpression<People>(efGenerator)?.Compile();
+            var efFilter = matchNullLiteral.GeneratePredicateExpression<People>(efGenerator)?.Compile();
 
             folks = peoples.Where(efFilter);
 
@@ -173,7 +173,7 @@ namespace McRule.Tests {
 
             // Test using EF generator
             var efGenerator = PredicateExpressionPolicyExtensions.GetEfExpressionGenerator();
-            var efFilter = matchNullByString.GetPredicateExpression<People>(efGenerator)?.Compile();
+            var efFilter = matchNullByString.GeneratePredicateExpression<People>(efGenerator)?.Compile();
 
             folks = peoples.Where(efFilter);
 
@@ -206,7 +206,7 @@ namespace McRule.Tests {
                 Rules = new[] {
                     youngens, vikings
                 },
-                RuleOperator = PredicateExpressionPolicyExtensions.RuleOperator.And
+                RuleOperator = RuleOperator.And
             }?.GetPredicateExpression<People>()?.Compile();
 
             var folks = peoples.Where(filter);
@@ -231,7 +231,7 @@ namespace McRule.Tests {
                 Rules = new[] {
                     youngens, vikings
                 },
-                RuleOperator = PredicateExpressionPolicyExtensions.RuleOperator.Or
+                RuleOperator = RuleOperator.Or
             }?.GetPredicateExpression<People>()?.Compile();
 
             folks = peoples.Where(filter);
@@ -254,11 +254,11 @@ namespace McRule.Tests {
         public void FilterListOfObjectsByMemberCollectionContents()
         {
             var generator = new PolicyToExpressionGenerator();
-            var generatedFilter = muggles.GetPredicateExpression<People>(generator);
+            var generatedFilter = muggles.GeneratePredicateExpression<People>(generator);
             var filteredFolks = peoples.Where(generatedFilter.Compile());
             
             var efGenerator = new PolicyToEFExpressionGenerator();
-            var efGeneratedFilter = muggles.GetPredicateExpression<People>(efGenerator);
+            var efGeneratedFilter = muggles.GeneratePredicateExpression<People>(efGenerator);
             var efFilteredFolks = peoples.Where(efGeneratedFilter.Compile());
 
             
@@ -281,11 +281,9 @@ namespace McRule.Tests {
         }
 
         [Test]
-        public void NullFilterWhenNoMatchingTypes() {
+        public void FilterWhenNoMatchingTypesThrows() {
             // Shouldn't have any filters in the policy for string objects.
-            var filter = notQuiteDead.GetPredicateExpression<string>()?.Compile();
-            
-            Assert.Null(filter);
+            Assert.Throws<ExpressionGeneratorException>(() => { notQuiteDead.GetPredicateExpression<string>(); });
         }
 
         [Test]
@@ -314,7 +312,7 @@ namespace McRule.Tests {
             var filter = eans.GetPredicateExpression<People>();
 
             var efGenerator = PredicateExpressionPolicyExtensions.GetEfExpressionGenerator();
-            var efFilter = eans.GetPredicateExpression<People>(efGenerator);
+            var efFilter = eans.GeneratePredicateExpression<People>(efGenerator);
 
             Assert.NotNull(filter);
             Assert.AreNotEqual(efFilter.ToString(), filter.ToString());
@@ -326,7 +324,7 @@ namespace McRule.Tests {
         public void BaseThrowsOnPoorlyImplementedGenerator()
         {
             var failedGenerator = new FailedExpressionGeneratorBase();
-            Assert.Throws<NotImplementedException>(() => { _ = eans.GetPredicateExpression<People>(failedGenerator); });
+            Assert.Throws<NotImplementedException>(() => { _ = eans.GeneratePredicateExpression<People>(failedGenerator); });
         }
     }
 
