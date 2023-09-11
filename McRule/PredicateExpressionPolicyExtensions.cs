@@ -1,4 +1,5 @@
-﻿using System.Collections;
+﻿using System;
+using System.Collections;
 using System.Diagnostics.Contracts;
 using System.Linq.Expressions;
 using System.Reflection;
@@ -291,15 +292,15 @@ public abstract class ExpressionGeneratorBase : ExpressionGenerator
         // Note, a float on the right hand side will not parse into an integer type implicitly
         // so it is parsed into a decimal value first and then rounded to the nearest integral.
         var lType = opLeft.Type;
-        var isNullable = false;
+        var isNullableValueType = false;
         Type? hasComparable = lType.GetInterface("IComparable");
         Type? hasCollection = lType.GetInterface("ICollection");
-        if (hasComparable == null && opLeft.Type.IsValueType) {
+        if (hasComparable == null && lType.IsValueType) {
             lType = Nullable.GetUnderlyingType(opLeft.Type);
             // Nullable.GetUnderlyingType only returns a non-null value if the
             // supplied type was indeed a nullable type.
             if (lType != null)
-                isNullable = true;
+                isNullableValueType = true;
             hasComparable = lType.GetInterface("IComparable");
         }
 
@@ -313,8 +314,6 @@ public abstract class ExpressionGeneratorBase : ExpressionGenerator
         // For string comparisons using wildcards, trim the wildcard characters and pass to the comparison method
         if (lType == typeof(string))
         {
-            Expression<Func<T, bool>> result;
-
             // Grab the object property for use in the inner expression body
             var strParam = Expression.Lambda<Func<T, string>>(opLeft, parameter);
 
@@ -339,27 +338,26 @@ public abstract class ExpressionGeneratorBase : ExpressionGenerator
 
             if (value.StartsWith("*") && value.EndsWith("*"))
             {
-                result = AddStringPropertyExpression<T>(strParam, value.Trim('*'), "Contains", ignoreCase);
+                comparison = AddStringPropertyExpression<T>(strParam, value.Trim('*'), "Contains", ignoreCase);
             }
             else if (value.StartsWith("*"))
             {
-                result = AddStringPropertyExpression<T>(strParam, value.TrimStart('*'), "EndsWith", ignoreCase);
+                comparison = AddStringPropertyExpression<T>(strParam, value.TrimStart('*'), "EndsWith", ignoreCase);
             }
             else if (value.EndsWith("*"))
             {
-                result = AddStringPropertyExpression<T>(strParam, value.TrimEnd('*'), "StartsWith", ignoreCase);
+                comparison = AddStringPropertyExpression<T>(strParam, value.TrimEnd('*'), "StartsWith", ignoreCase);
             }
             else
             {
-                result = AddStringPropertyExpression<T>(strParam, value, "Equals", ignoreCase);
+                comparison = AddStringPropertyExpression<T>(strParam, value, "Equals", ignoreCase);
             }
 
             if (negateResult)
             {
-                result = Negate<T>(result);
+                comparison = Negate<T>((Expression<Func<T,bool>>)comparison);
             }
 
-            return result;
         }
         else if (hasComparable == typeof(IComparable))
         {
@@ -377,7 +375,7 @@ public abstract class ExpressionGeneratorBase : ExpressionGenerator
                 var opRightNumerical = parseMethod?.Invoke(null, new string[] { operand });
 
                 opRight = Expression.Constant(opRightNumerical);
-                Expression opLeftFinal = isNullable ? Expression.Convert(opLeft, lType) : opLeft;
+                Expression opLeftFinal = isNullableValueType ? Expression.Convert(opLeft, lType) : opLeft;
                 comparison = GetComparer(operatorPrefix.Value.Trim(), opLeftFinal, opRight);
             }
         }
@@ -394,9 +392,14 @@ public abstract class ExpressionGeneratorBase : ExpressionGenerator
         // expression for it so just defer to a false literal. 
         Expression<Func<T, bool>> falsePredicate = x => false;
         comparison = comparison == null ? falsePredicate : comparison;
-        if (isNullable)
+        if (isNullableValueType)
         {
             comparison = AddNotNullCheck<T>(opLeft, comparison);
+        }
+
+        // The value may have the right type and should just be returned.
+        if (comparison is Expression<Func<T, bool>> result) {
+            return result;
         }
 
         return Expression.Lambda<Func<T, bool>>(comparison ?? Expression.Equal(opLeft, opRight), parameter);
