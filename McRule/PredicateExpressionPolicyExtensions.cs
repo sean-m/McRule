@@ -35,7 +35,7 @@ public static partial class PredicateExpressionPolicyExtensions
     }
 
     /// <summary>
-    /// Test for null value. This is used to test for null literals. 
+    /// Test for null value. This is used to test for null literals.
     /// </summary>
     /// <typeparam name="T"></typeparam>
     /// <param name="expression"></param>
@@ -91,7 +91,9 @@ public static partial class PredicateExpressionPolicyExtensions
         // Bind to the property by name and make the constant value
         // we'll be passing into the Contains() call
         var parameter = Expression.Parameter(typeof(T), "x");
-        var opLeft = Expression.Property(parameter, property);
+        Expression opLeft = parameter;
+        foreach (string p in property.Split(".")) opLeft = Expression.PropertyOrField(opLeft, p);
+
         var opRight = Expression.Constant(value);
 
         // Create generic method which is bound with the Call Expression below
@@ -110,7 +112,7 @@ public static partial class PredicateExpressionPolicyExtensions
     }
 
     /// <summary>
-    /// Combine a list of expressions exclusively with AndAlso predicate from 
+    /// Combine a list of expressions exclusively with AndAlso predicate from
     /// PredicateBuilder. This operator short circuits.
     /// </summary>
     public static Expression<Func<T, bool>>? CombineAnd<T>(IEnumerable<Expression<Func<T, bool>>> predicates)
@@ -155,9 +157,9 @@ public static partial class PredicateExpressionPolicyExtensions
         return CombineOr(predicates);
     }
 
-    /// <summary> 
-    /// Builds expressions using string member functions StartsWith, EndsWith or Contains as the comparator. 
-    /// </summary> 
+    /// <summary>
+    /// Builds expressions using string member functions StartsWith, EndsWith or Contains as the comparator.
+    /// </summary>
     public static Expression<Func<T, bool>> AddStringPropertyExpression<T>(
         Expression<Func<T, string>> lambda, string filter, string filterType, bool ignoreCase = false)
     {
@@ -235,9 +237,9 @@ public class PolicyToExpressionGenerator : ExpressionGeneratorBase
 
 public class PolicyToEFExpressionGenerator : ExpressionGeneratorBase
 {
-    /// <summary> 
-    /// Builds expressions using string member functions StartsWith, EndsWith or Contains as the comparator. 
-    /// </summary> 
+    /// <summary>
+    /// Builds expressions using string member functions StartsWith, EndsWith or Contains as the comparator.
+    /// </summary>
     public override Expression<Func<T, bool>> AddStringPropertyExpression<T>(
         Expression<Func<T, string>> lambda, string filter, string filterType, bool ignoreCase = false)
     {
@@ -272,7 +274,7 @@ public abstract class ExpressionGeneratorBase : ExpressionGenerator
     public virtual Expression<Func<T, bool>> AddStringPropertyExpression<T>(
         Expression<Func<T, string>> lambda, string filter, string filterType, bool ignoreCase = false)
     {
-        throw new NotImplementedException("Must override the AddStringPropertyExpression<T> method in a child class. This one is virtual and shouldn't ever be called."); 
+        throw new NotImplementedException("Must override the AddStringPropertyExpression<T> method in a child class. This one is virtual and shouldn't ever be called.");
     }
 
     /// <summary>
@@ -281,7 +283,9 @@ public abstract class ExpressionGeneratorBase : ExpressionGenerator
     public Expression<Func<T, bool>> GetPredicateExpressionForType<T>(string property, string value)
     {
         var parameter = Expression.Parameter(typeof(T), "x");
-        var opLeft = Expression.Property(parameter, property);
+        Expression opLeft = parameter;
+        foreach (string p in property.Split(".")) opLeft = Expression.PropertyOrField(opLeft, p);
+
         (bool literalFound, LiteralValue? processedValue) = GetStringValueLiteral(value);
         var opRight = Expression.Constant(value);
         Expression? comparison = null;
@@ -389,7 +393,7 @@ public abstract class ExpressionGeneratorBase : ExpressionGenerator
         }
 
         // If comparison is null that means we haven't been able to infer a good comparison
-        // expression for it so just defer to a false literal. 
+        // expression for it so just defer to a false literal.
         Expression<Func<T, bool>> falsePredicate = x => false;
         comparison = comparison == null ? falsePredicate : comparison;
         if (isNullableValueType)

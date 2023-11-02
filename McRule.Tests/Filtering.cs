@@ -7,7 +7,7 @@ using System.Reflection.Metadata;
 namespace McRule.Tests {
     public class Filtering {
 
-        People[] peoples = new[] { 
+        People[] peoples = new[] {
             new People("Sean",   "Confused",  35,  true,  new[] {"muggle"}),
             new People("Sean",   "Actor",     90,  false, new[] {"muggle", "metallurgist"}),
             new People("Bean",   "Runt",      20,  false, new[] {"muggle", "giant"}),
@@ -26,6 +26,7 @@ namespace McRule.Tests {
             public int? number { get; set; }
             public bool stillWithUs { get; set; }
             public string[] tags { get; set; }
+            public People? relatedTo {  get; set; }
 
             public People(string name, string kind, int? number, bool stillWithUs, string[] tags = null)
             {
@@ -38,11 +39,11 @@ namespace McRule.Tests {
 
             public override bool Equals(object obj)
             {
-                return obj is People other && 
-                       name == other.name && 
-                       kind == other.kind && 
-                       number == other.number && 
-                       stillWithUs == other.stillWithUs && 
+                return obj is People other &&
+                       name == other.name &&
+                       kind == other.kind &&
+                       number == other.number &&
+                       stillWithUs == other.stillWithUs &&
                        System.Linq.Enumerable.SequenceEqual(tags, other.tags);
             }
         }
@@ -256,12 +257,12 @@ namespace McRule.Tests {
             var generator = new PolicyToExpressionGenerator();
             var generatedFilter = muggles.GeneratePredicateExpression<People>(generator);
             var filteredFolks = peoples.Where(generatedFilter.Compile());
-            
+
             var efGenerator = new PolicyToEFExpressionGenerator();
             var efGeneratedFilter = muggles.GeneratePredicateExpression<People>(efGenerator);
             var efFilteredFolks = peoples.Where(efGeneratedFilter.Compile());
 
-            
+
             var filter = muggles.GetPredicateExpression<People>()?.Compile();
             var folks = peoples.Where(filter);
 
@@ -294,7 +295,7 @@ namespace McRule.Tests {
             Assert.NotNull(folks);
             Assert.NotNull(folks.Where(x => x.kind == "Viking" && x.stillWithUs == false));
             Assert.NotNull(folks.Where(x => x.kind == "Viking" && x.stillWithUs == true));
-            
+
             // Should be either a viking or dead, not neither.
             Assert.Null(folks.FirstOrDefault(x => x.kind != "Viking" && x.stillWithUs == true));
         }
@@ -325,6 +326,23 @@ namespace McRule.Tests {
         {
             var failedGenerator = new FailedExpressionGeneratorBase();
             Assert.Throws<NotImplementedException>(() => { _ = eans.GeneratePredicateExpression<People>(failedGenerator); });
+        }
+
+
+        [Test]
+        public void SelectPropertyOfMemberObject() {
+            var filter = vikings.GetPredicateExpression<People>()?.Compile();
+
+            // This should be the two Vikings: Lars then Ragnar, in that order
+            var folks = peoples.Where(filter).OrderBy(x => x.name);
+
+            // We specify that Lars is related to Ragnar
+            folks.First().relatedTo = folks.Skip(1).First();
+
+            var testMembersProperty = ("People", "relatedTo.name", "Ragnar").ToFilterRule().GetPredicateExpression<People>().Compile();
+
+            Assert.NotNull(folks);
+            Assert.True(testMembersProperty(folks.First()));
         }
     }
 
