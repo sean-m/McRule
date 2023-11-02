@@ -213,9 +213,17 @@ public static partial class PredicateExpressionPolicyExtensions
                     break;
             }
         }
-     
+
         // No literals found.
         return (false, null);
+    }
+
+    public static Expression<Func<T, dynamic>> SelectPropertyOrField<T>(string propertyName) {
+        var parameter = Expression.Parameter(typeof(T), "x");
+        Expression opLeft = parameter;
+        foreach (var p in propertyName.Split(".")) opLeft = Expression.PropertyOrField(opLeft, p);
+
+        return Expression.Lambda<Func<T, dynamic>>(opLeft, parameter);
     }
 
     public static ExpressionGenerator GetCoreExpressionGenerator() => new PolicyToExpressionGenerator();
@@ -225,9 +233,9 @@ public static partial class PredicateExpressionPolicyExtensions
 
 public class PolicyToExpressionGenerator : ExpressionGeneratorBase
 {
-    /// <summary> 
-    /// Builds expressions using string member functions StartsWith, EndsWith or Contains as the comparator. 
-    /// </summary> 
+    /// <summary>
+    /// Builds expressions using string member functions StartsWith, EndsWith or Contains as the comparator.
+    /// </summary>
     public override Expression<Func<T, bool>> AddStringPropertyExpression<T>(
         Expression<Func<T, string>> lambda, string filter, string filterType, bool ignoreCase = false)
     {
