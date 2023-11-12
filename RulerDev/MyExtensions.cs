@@ -3,6 +3,7 @@ using System.Collections;
 using System.Linq;
 using System.Collections.Generic;
 using System.Linq.Expressions;
+using System.Text;
 using ConsoleTables;
 using McRule;
 using Newtonsoft.Json;
@@ -49,11 +50,44 @@ public static class MyExtensions {
             
             table.Write(Format.Minimal);
         } else {
-            Console.WriteLine(JsonConvert.SerializeObject(thing, Formatting.Indented));
+            Console.WriteLine(ToKvText(thing));
         }
         
         end:
         return thing;
+    }
+    
+    public static string ToKvText(this object entry) {
+        if (entry == null) return string.Empty;
+
+        StringBuilder sb = new StringBuilder();
+
+        var properties = entry.GetType().GetProperties();
+        var longestPropertyLength = properties.Select(x => x.Name.Length).Max();
+        int indentation = longestPropertyLength + 3;
+
+        foreach (var p in properties) {
+            sb.Append(p.Name.PadRight(longestPropertyLength));
+            sb.Append(" : ");
+            bool multiLine = false;
+            var thing = p.GetValue(entry);
+            if (thing is string) {
+                foreach (var value in (thing ?? "NULL").ToString().Split("\n")) {
+                    var strValue = FormatProperty((value) ?? "NULL");
+                    if (multiLine) {
+                        sb.AppendLine((strValue).PadLeft(indentation + strValue.Length));
+                    } else {
+                        sb.AppendLine((strValue).PadRight(longestPropertyLength));
+                        multiLine = true;
+                    }
+                }
+            } else {
+                var value = FormatProperty(thing);
+                sb.AppendLine((value).PadLeft(value.Length));
+            }
+        }
+
+        return sb.ToString();
     }
 
     /// <summary>
@@ -70,18 +104,18 @@ public static class MyExtensions {
         if (Property is String s) return s;
         
         if (Property.GetType().GetInterface("IEnumerable") != null) {
-            if (Property.Length < 4) {
+            if (Enumerable.Count(Property) <= 5) {
                 return $"[{String.Join(", ", Property)}]";
             } else {
                 var elems = new List<string>();
                 var count = 0;
                 foreach (var el in Property) {
                     count++;
-                    elems.Add(el);
+                    elems.Add(el.ToString());
                     if (count >= 3) break;
                 }
                 
-                return $"[{String.Join(", ", elems)}...({Property.Length})]";
+                return $"[{String.Join(", ", elems)}...({Enumerable.Count(Property)})]";
             }
         }
         
