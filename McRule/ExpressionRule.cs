@@ -10,6 +10,7 @@ namespace McRule {
     public class ExpressionRuleCollection : IExpressionRuleCollection, IExpressionPolicy {
         public Guid Id { get; set; } = Guid.NewGuid();
         public string Name { get; set; }
+        public IDictionary<string, string[]> Properties { get; set; } = new Dictionary<string, string[]>();
         public RuleOperator RuleOperator { get; set; } = RuleOperator.And;
         public IEnumerable<IExpressionPolicy> Rules { get; set; }
         public string TargetType { get; set; }

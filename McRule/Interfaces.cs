@@ -8,6 +8,7 @@ namespace McRule {
     public interface IExpressionRuleCollection {
         public Guid Id { get; }
         public IEnumerable<IExpressionPolicy> Rules { get; }
+        public IDictionary<string, string[]> Properties { get; }
         public RuleOperator RuleOperator { get; }
     }
 
