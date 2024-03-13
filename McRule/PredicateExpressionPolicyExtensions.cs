@@ -410,7 +410,7 @@ public abstract class ExpressionGeneratorBase : ExpressionGenerator
         }
 
         // The value may have the right type and should just be returned.
-        if (comparison is Expression<Func<T, bool>> result) {
+        if (comparison is Expression<Func<T, bool>> result && result != default(Expression<Func<T, bool>>)) {
             return result;
         }
 

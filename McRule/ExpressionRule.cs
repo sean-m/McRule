@@ -50,10 +50,10 @@ namespace McRule {
             Property = input.Item2;
             Value = input.Item3;
         }
-        
+
         /// <summary>
         /// Returns an expression tree targeting an object type based on policy parameters.
-        /// </summary>	
+        /// </summary>
         public Expression<Func<T, bool>>? GetPredicateExpression<T>() {
             if (!(typeof(T).Name.Equals(this.TargetType, StringComparison.CurrentCultureIgnoreCase))) return null;
 
@@ -66,7 +66,7 @@ namespace McRule {
 
         /// <summary>
         /// Returns an expression tree targeting an object type based on policy parameters.
-        /// </summary>	
+        /// </summary>
         public Expression<Func<T, bool>>? GeneratePredicateExpression<T>(ExpressionGenerator generator) {
             if (!(typeof(T).Name.Equals(this.TargetType, StringComparison.CurrentCultureIgnoreCase))) return null;
 
