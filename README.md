@@ -40,5 +40,7 @@ if (matched.Success) {
 
 Publish nuget package:
 ```
+cd McRule/bin/Release
+dotnet publish -c release ../../
 dotnet nuget push McRule.0.0.5.nupkg --api-key <api key> --source https://api.nuget.org/v3/index.json
 ```
