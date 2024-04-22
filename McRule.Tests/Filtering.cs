@@ -4,6 +4,8 @@ using System.Linq.Expressions;
 using System.Reflection;
 using System.Reflection.Metadata;
 
+using static McRule.Tests.TestPolicies;
+
 namespace McRule.Tests {
     public class Filtering {
 
@@ -48,102 +50,6 @@ namespace McRule.Tests {
             }
         }
 
-        #region testPolicies
-
-        ExpressionPolicy everyKindInclusive = new ExpressionPolicy {
-            Name = "Any kind including null",
-            Properties = new string[] { }, // Can't do anything with this yet
-            Rules = new List<ExpressionRule>
-            {
-                ("People", "kind", "*").ToFilterRule(),
-            }
-        };
-
-        ExpressionPolicy matchNullLiteral = new ExpressionPolicy {
-            Name = "Any kind null",
-            Properties = new string[] { }, // Can't do anything with this yet
-            Rules = new List<ExpressionRule>
-            {
-                ("People", "kind", "{{NULL}}").ToFilterRule(),
-            }
-        };
-
-        ExpressionPolicy matchNullByString = new ExpressionPolicy {
-            Name = "Don't think this should work",
-            Properties = new string[] { }, // Can't do anything with this yet
-            Rules = new List<ExpressionRule>
-            {
-                ("People", "kind", "null").ToFilterRule(),
-            }
-        };
-
-        ExpressionPolicy notSean = new ExpressionPolicy {
-            Name = "Not named Sean",
-            Properties = new string[] { }, // Can't do anything with this yet
-            Rules = new List<ExpressionRule>
-            {
-                ("People", "name", "!Sean").ToFilterRule(),
-            }
-        };
-
-        ExpressionPolicy eans = new ExpressionPolicy {
-            Name = "eans",
-            Properties = new string[] { }, // Can't do anything with this yet
-            Rules = new List<ExpressionRule>
-            {
-                ("People", "name", "*ean").ToFilterRule(),
-                ("People", "name", "~*EAN").ToFilterRule(),
-            },
-            RuleOperator = RuleOperator.And
-        };
-
-        ExpressionPolicy youngens = new ExpressionPolicy {
-            Name = "Young folk",
-            Properties = new string[] { }, // Can't do anything with this yet
-            Rules = new List<ExpressionRule>
-            {
-                ("People", "number", ">=17").ToFilterRule(),
-                ("People", "number", "<30").ToFilterRule(),
-            },
-            RuleOperator = RuleOperator.And
-        };
-
-        ExpressionPolicy vikings = new ExpressionPolicy {
-            Name = "Vikings",
-            Rules = new List<ExpressionRule>
-            {
-                ("People", "kind", "~viking").ToFilterRule(),
-            },
-            RuleOperator = RuleOperator.And
-        };
-
-        ExpressionPolicy muggles = new ExpressionPolicy {
-            Name = "Non-magic folk",
-            Rules = new List<ExpressionRule>
-            {
-                ("People", "tags", "muggle").ToFilterRule(),
-            },
-            RuleOperator = RuleOperator.And
-        };
-
-        ExpressionPolicy notQuiteDead = new ExpressionPolicy {
-            Rules = new List<ExpressionRule>
-            {
-                ("People", "stillWithUs", "true").ToFilterRule(),
-            },
-            RuleOperator = RuleOperator.And
-        };
-
-        ExpressionPolicy deadOrViking = new ExpressionPolicy {
-            Rules = new List<ExpressionRule>
-            {
-                ("People", "stillWithUs", "false").ToFilterRule(),
-                ("People", "kind", "Viking").ToFilterRule(),
-            },
-            RuleOperator = RuleOperator.Or
-        };
-
-        #endregion  testPolicies
 
         [SetUp]
         public void Setup() { }
