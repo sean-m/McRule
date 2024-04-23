@@ -18,10 +18,8 @@ namespace McRule.Tests {
 
         public class ContextStringDictionary : Dictionary<string, string> { }
 
-        public List<SomeContext> SomeContexts = new List<SomeContext>();
-
-        [SetUp] public void SetUp() {
-            SomeContexts.Add(new SomeContext() {
+        public List<SomeContext> SomeContexts = new List<SomeContext>() {
+            new SomeContext {
                 Name = "Me",
                 Context = new ContextStringDictionary() {
                     { "GivenName", "Sean"},
@@ -29,9 +27,8 @@ namespace McRule.Tests {
                     { "Department", "IT" },
                     { "Team", "Cloud" },
                 }
-            });
-
-            SomeContexts.Add(new SomeContext() {
+            },
+            new SomeContext {
                 Name = "Dog",
                 Context = new ContextStringDictionary() {
                     { "GivenName", "Navi"},
@@ -39,9 +36,8 @@ namespace McRule.Tests {
                     { "Department", "Security" },
                     { "Team", "Pets" },
                 }
-            });
-
-            SomeContexts.Add(new SomeContext() {
+            },
+            new SomeContext {
                 Name = "Son",
                 Context = new ContextStringDictionary() {
                     { "GivenName", "Thing-1"},
@@ -49,45 +45,50 @@ namespace McRule.Tests {
                     { "Department", "IT" },
                     { "Team", "Children" },
                 }
-            });
-
-            SomeContexts.Add(new SomeContext() {
+            },
+            new SomeContext() {
                 Name = "Son",
                 Context = new ContextStringDictionary() {
                     { "GivenName", "Thing-2"},
                     { "Surname", "McArdle" },
                     { "Team", "Children" },
                 }
-            });
+            }
+        };
+
+        [SetUp] public void SetUp() {
+
         }
 
 
         [Test]
         public void CanSelectDictionaryValuesByKey() {
             var lambda = itPeople.GetPredicateExpression<ContextStringDictionary>();
-            Console.WriteLine(lambda);
 
             var filter = lambda.Compile();
-            var filteredContexts = SomeContexts.Select(x => x.Context)
+            var localContext = SomeContexts;
+            var filteredContexts = localContext.Select(x => x.Context)
                 .Where(x => x.ContainsKey("Department")) // Skip entry with a missing key
-                .Where(filter)?.ToList();
+                .Where(filter);
 
             Assert.NotNull(filteredContexts);
-            Assert.AreEqual(filteredContexts.Count, 2);
+            Assert.AreEqual(filteredContexts.Count(), 2);
         }
 
 
         [Test]
         public void CanSelectDictionaryValueWithContainsKeyCheck() {
             var lambda = itPeople.GetPredicateExpression<ContextStringDictionary>();
-            Console.WriteLine(lambda);
 
             var filter = lambda.Compile();
-            var filteredContexts = SomeContexts.Select(x => x.Context)
-                .Where(filter)?.ToList();
+            var localContext = SomeContexts;
+            var filteredContexts = localContext.Select(x => x.Context)
+                .Where(filter);
 
             Assert.NotNull(filteredContexts);
-            Assert.AreEqual(filteredContexts.Count, 2);
+
+            int filteredCount = filteredContexts.Count();
+            Assert.AreEqual(filteredCount, 2);
         }
     }
 }
