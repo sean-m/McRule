@@ -117,6 +117,16 @@ namespace McRule.Tests {
             RuleOperator = RuleOperator.And
         };
 
+        public static ExpressionPolicy itPeopleCaseless = new ExpressionPolicy {
+            Rules = new List<ExpressionRule>
+            {
+                ("ContextDictionary", "Department", "~IT").ToFilterRule(),
+                ("ContextStringDictionary", "Department", "~IT").ToFilterRule(),
+                ("SomeContext", "Context.Department", "~IT").ToFilterRule(), // Same rule but with nested selector
+            },
+            RuleOperator = RuleOperator.And
+        };
+
         #endregion
     }
 }

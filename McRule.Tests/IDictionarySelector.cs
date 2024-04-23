@@ -53,6 +53,15 @@ namespace McRule.Tests {
                     { "Surname", "McArdle" },
                     { "Team", "Children" },
                 }
+            },
+            new SomeContext() {
+                Name = "Nerd Son",
+                Context = new ContextStringDictionary() {
+                    { "GivenName", "Thing-2"},
+                    { "Surname", "McArdle" },
+                    { "Team", "Children" },
+                    { "Department", "it" },
+                }
             }
         };
 
@@ -75,6 +84,19 @@ namespace McRule.Tests {
             Assert.AreEqual(filteredContexts.Count(), 2);
         }
 
+        [Test]
+        public void CanSelectDictionaryValuesByKeyCaseInsensitive() {
+            var lambda = itPeopleCaseless.GetPredicateExpression<ContextStringDictionary>();
+
+            var filter = lambda.Compile();
+            var localContext = SomeContexts;
+            var filteredContexts = localContext.Select(x => x.Context)
+                .Where(x => x.ContainsKey("Department")) // Skip entry with a missing key
+                .Where(filter);
+
+            Assert.NotNull(filteredContexts);
+            Assert.AreEqual(filteredContexts.Count(), 3);
+        }
 
         [Test]
         public void CanSelectDictionaryValueWithContainsKeyCheck() {
