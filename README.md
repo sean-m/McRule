@@ -18,6 +18,7 @@ A simple equality comparison is used by default but operators can be prefixed to
 | IComparable   | <>, !=, ! | Not-equal to comparison.                                                                                                                                                                                                                                                                                                                      |
 
 > Note: the IComparable interface is mostly used for numerical types but custom types with comparison providers may work at runtime.
+> Note: initial IDictionary support has been added but only for collections where the value types are strings. When missing keys are encountered, evaluation defaults to false.
 
 ### Literal Values
 Literal values, as needed, use handlbar syntax: {{ value }}. Null checks are implicitly added to most expressions but sometimes you need an expression that evaluates true for null values. In that case, a null literal is represented as {{null}}.
