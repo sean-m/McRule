@@ -8,7 +8,7 @@ using System.Threading.Tasks;
 namespace McRule.Tests {
     public static class TestPolicies {
 
-        #region testPolicies
+        #region peopleTests
 
         public static ExpressionPolicy everyKindInclusive = new ExpressionPolicy {
             Name = "Any kind including null",
@@ -104,5 +104,19 @@ namespace McRule.Tests {
         };
 
         #endregion  testPolicies
+
+        #region someContext policies
+
+        public static ExpressionPolicy itPeople = new ExpressionPolicy {
+            Rules = new List<ExpressionRule>
+            {
+                ("ContextDictionary", "Department", "IT").ToFilterRule(),
+                ("ContextStringDictionary", "Department", "IT").ToFilterRule(),
+                ("SomeContext", "Context.Department", "IT").ToFilterRule(), // Same rule but with nested selector
+            },
+            RuleOperator = RuleOperator.And
+        };
+
+        #endregion
     }
 }

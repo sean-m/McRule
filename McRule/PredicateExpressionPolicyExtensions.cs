@@ -277,13 +277,64 @@ public class PolicyToEFExpressionGenerator : ExpressionGeneratorBase
     }
 }
 
-public abstract class ExpressionGeneratorBase : ExpressionGenerator
-{
+
+
+public abstract class ExpressionGeneratorBase : ExpressionGenerator {
+
+
     public virtual Expression<Func<T, bool>> AddStringPropertyExpression<T>(
-        Expression<Func<T, string>> lambda, string filter, string filterType, bool ignoreCase = false)
-    {
+        Expression<Func<T, string>> lambda, string filter, string filterType, bool ignoreCase = false) {
         throw new NotImplementedException("Must override the AddStringPropertyExpression<T> method in a child class. This one is virtual and shouldn't ever be called.");
     }
+
+
+    private class MemberResolveResult<T> {
+        internal List<Expression<Func<T, bool>>> PreChecks { get; set; } = new List<Expression<Func<T, bool>>>();
+
+        internal Expression Member { get; set; }
+
+        internal void AddNewPreCheck(Expression<Func<T, bool>> lambda) {
+            PreChecks.Add(lambda);
+        }
+
+        internal Expression<Func<T, bool>> GetPrecheckFunc() {
+            if (PreChecks.Count == 0) {
+                return default(Expression<Func<T, bool>>);
+            }
+
+            return CombineAnd<T>(PreChecks);
+        }
+    }
+
+    private MemberResolveResult<T> GetMemberByNameForType<T>(string propertyName, ParameterExpression parameter) {
+
+        var result = new MemberResolveResult<T>();
+
+        Expression opLeft = parameter;
+
+        foreach (string p in propertyName.Split(".")) {
+            if (opLeft.Type.GetInterfaces().Contains(typeof(IDictionary))) {
+
+                var dictKey = Expression.Constant(p);
+
+                // Create generic method which is bound with the Call Expression below
+                var containsKeyRuntimeMethod = opLeft.Type.GetMethod("ContainsKey");
+
+                var containsKeyCall = Expression.Call(opLeft, containsKeyRuntimeMethod, dictKey);
+                //var preCheckLambda = Expression.Lambda(containsKeyCall, false, new ParameterExpression[] { opLeft, dictKey });
+                result.AddNewPreCheck(Expression.Lambda<Func<T,bool>>(containsKeyCall, false, Expression.Parameter(opLeft.Type, "x")));
+
+                opLeft = Expression.Property(opLeft, "Item", dictKey);
+
+            } else {
+                opLeft = Expression.PropertyOrField(opLeft, p);
+            }
+        }
+        result.Member = opLeft;
+
+        return result;
+    }
+
 
     /// <summary>
     /// Dynamically build an expression suitable for filtering in a Where clause
@@ -291,12 +342,13 @@ public abstract class ExpressionGeneratorBase : ExpressionGenerator
     public Expression<Func<T, bool>> GetPredicateExpressionForType<T>(string property, string value)
     {
         var parameter = Expression.Parameter(typeof(T), "x");
-        Expression opLeft = parameter;
-        foreach (string p in property.Split(".")) opLeft = Expression.PropertyOrField(opLeft, p);
+        var resolvedMember = GetMemberByNameForType<T>(property, parameter);
+        Expression opLeft = resolvedMember.Member;
+
 
         (bool literalFound, LiteralValue? processedValue) = GetStringValueLiteral(value);
         var opRight = Expression.Constant(value);
-        Expression? comparison = null;
+        Expression? comparison = resolvedMember.GetPrecheckFunc();
 
         // For IComparable types on the left hand side, attempt to parse the right hand side
         // into the same type and use <,>,<=,>=,= prefixes to infer BinaryExpression type.
@@ -350,19 +402,20 @@ public abstract class ExpressionGeneratorBase : ExpressionGenerator
 
             if (value.StartsWith("*") && value.EndsWith("*"))
             {
-                comparison = AddStringPropertyExpression<T>(strParam, value.Trim('*'), "Contains", ignoreCase);
+                comparison = PredicateBuilder.And<T>((Expression<Func<T, bool>>)comparison, AddStringPropertyExpression<T>(strParam, value.Trim('*'), "Contains", ignoreCase));
             }
             else if (value.StartsWith("*"))
             {
-                comparison = AddStringPropertyExpression<T>(strParam, value.TrimStart('*'), "EndsWith", ignoreCase);
+                comparison = PredicateBuilder.And<T>((Expression<Func<T, bool>>)comparison, AddStringPropertyExpression<T>(strParam, value.TrimStart('*'), "EndsWith", ignoreCase));
+
             }
             else if (value.EndsWith("*"))
             {
-                comparison = AddStringPropertyExpression<T>(strParam, value.TrimEnd('*'), "StartsWith", ignoreCase);
+                comparison = PredicateBuilder.And<T>((Expression<Func<T, bool>>)comparison, AddStringPropertyExpression<T>(strParam, value.TrimEnd('*'), "StartsWith", ignoreCase));
             }
             else
             {
-                comparison = AddStringPropertyExpression<T>(strParam, value, "Equals", ignoreCase);
+                comparison = PredicateBuilder.And<T>((Expression<Func<T, bool>>)comparison, AddStringPropertyExpression<T>(strParam, value, "Equals", ignoreCase));
             }
 
             if (negateResult)
@@ -410,11 +463,15 @@ public abstract class ExpressionGeneratorBase : ExpressionGenerator
         }
 
         // The value may have the right type and should just be returned.
-        if (comparison is Expression<Func<T, bool>> result && result != default(Expression<Func<T, bool>>)) {
-            return result;
+        Expression<Func<T, bool>> result = default(Expression<Func<T, bool>>);
+        if (comparison is Expression<Func<T, bool>> checkedResult && checkedResult != default(Expression<Func<T, bool>>)) {
+            result = checkedResult;
+        }
+        else {
+            result = Expression.Lambda<Func<T, bool>>(comparison ?? Expression.Equal(opLeft, opRight), parameter);
         }
 
-        return Expression.Lambda<Func<T, bool>>(comparison ?? Expression.Equal(opLeft, opRight), parameter);
+        return result;
     }
 
 
