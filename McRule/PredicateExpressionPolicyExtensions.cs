@@ -402,20 +402,20 @@ public abstract class ExpressionGeneratorBase : ExpressionGenerator {
 
             if (value.StartsWith("*") && value.EndsWith("*"))
             {
-                comparison = PredicateBuilder.And<T>((Expression<Func<T, bool>>)comparison, AddStringPropertyExpression<T>(strParam, value.Trim('*'), "Contains", ignoreCase));
+                comparison = AddStringPropertyExpression<T>(strParam, value.Trim('*'), "Contains", ignoreCase);
             }
             else if (value.StartsWith("*"))
             {
-                comparison = PredicateBuilder.And<T>((Expression<Func<T, bool>>)comparison, AddStringPropertyExpression<T>(strParam, value.TrimStart('*'), "EndsWith", ignoreCase));
+                comparison = AddStringPropertyExpression<T>(strParam, value.TrimStart('*'), "EndsWith", ignoreCase);
 
             }
             else if (value.EndsWith("*"))
             {
-                comparison = PredicateBuilder.And<T>((Expression<Func<T, bool>>)comparison, AddStringPropertyExpression<T>(strParam, value.TrimEnd('*'), "StartsWith", ignoreCase));
+                comparison = AddStringPropertyExpression<T>(strParam, value.TrimEnd('*'), "StartsWith", ignoreCase);
             }
             else
             {
-                comparison = PredicateBuilder.And<T>((Expression<Func<T, bool>>)comparison, AddStringPropertyExpression<T>(strParam, value, "Equals", ignoreCase));
+                comparison = AddStringPropertyExpression<T>(strParam, value, "Equals", ignoreCase);
             }
 
             if (negateResult)

@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Microsoft.VisualStudio.TestTools.UnitTesting;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Linq.Expressions;
@@ -62,13 +63,15 @@ namespace McRule.Tests {
         }
 
 
-        [Test] public void CanSelectDictionaryValuesByKey() {
+        [Test]
+        public void CanSelectDictionaryValuesByKey() {
             var lambda = itPeople.GetPredicateExpression<ContextStringDictionary>();
             Console.WriteLine(lambda);
 
             var filter = lambda.Compile();
-            Func<ContextStringDictionary, bool> filterText = x => (x.ContainsKey("Department") && (x["Department"] != null) && x["Department"].Equals("IT"));
-            var filteredContexts = SomeContexts.Select(x => x.Context).Where(filterText)?.ToList();
+            var filteredContexts = SomeContexts.Select(x => x.Context)
+                .Where(x => x.ContainsKey("Department")) // Skip entry with a missing key
+                .Where(filter)?.ToList();
 
             Assert.NotNull(filteredContexts);
             Assert.AreEqual(filteredContexts.Count, 2);
