@@ -1,5 +1,4 @@
-﻿using Microsoft.VisualStudio.TestTools.UnitTesting;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Linq.Expressions;
@@ -71,6 +70,20 @@ namespace McRule.Tests {
             var filter = lambda.Compile();
             var filteredContexts = SomeContexts.Select(x => x.Context)
                 .Where(x => x.ContainsKey("Department")) // Skip entry with a missing key
+                .Where(filter)?.ToList();
+
+            Assert.NotNull(filteredContexts);
+            Assert.AreEqual(filteredContexts.Count, 2);
+        }
+
+
+        [Test]
+        public void CanSelectDictionaryValueWithContainsKeyCheck() {
+            var lambda = itPeople.GetPredicateExpression<ContextStringDictionary>();
+            Console.WriteLine(lambda);
+
+            var filter = lambda.Compile();
+            var filteredContexts = SomeContexts.Select(x => x.Context)
                 .Where(filter)?.ToList();
 
             Assert.NotNull(filteredContexts);

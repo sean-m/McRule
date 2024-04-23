@@ -35,6 +35,29 @@ public static partial class PredicateExpressionPolicyExtensions
     }
 
     /// <summary>
+    /// Returns an expression which executes a ContainsKey method call on IDictionary types
+    /// and prepends it to a given expression with an AndAlso operator. Note, this comparison
+    /// short circuits so the right hand side will not execute when a key is not found.
+    /// </summary>
+    /// <typeparam name="T"></typeparam>
+    /// <param name="left"></param>
+    /// <param name="right"></param>
+    /// <param name="dictKey"></param>
+    /// <returns></returns>
+    internal static Expression AddContainsKeyCheck<T>(
+        Expression left,
+        string dictKey,
+        Expression<Func<T, bool>> right) {
+
+        // Create generic method which is bound with the Call Expression below
+        var containsKeyRuntimeMethod = left.Type.GetMethod("ContainsKey");
+
+        var containsKeyCall = Expression.Call(left, containsKeyRuntimeMethod, Expression.Constant(dictKey));
+        var methodExpression = Expression.Lambda<Func<T, bool>>(containsKeyCall, false, right.Parameters);
+        return PredicateBuilder.And<T>(methodExpression, right);
+    }
+
+    /// <summary>
     /// Test for null value. This is used to test for null literals.
     /// </summary>
     /// <typeparam name="T"></typeparam>
@@ -293,6 +316,10 @@ public abstract class ExpressionGeneratorBase : ExpressionGenerator {
 
         internal Expression Member { get; set; }
 
+        internal bool LOpIsDict { get; set; } = false;
+        internal Expression LOp { get; set; }
+        internal string DictKey { get; set;  }
+
         internal void AddNewPreCheck(Expression<Func<T, bool>> lambda) {
             PreChecks.Add(lambda);
         }
@@ -313,16 +340,14 @@ public abstract class ExpressionGeneratorBase : ExpressionGenerator {
         Expression opLeft = parameter;
 
         foreach (string p in propertyName.Split(".")) {
+            result.LOpIsDict = false;
+
             if (opLeft.Type.GetInterfaces().Contains(typeof(IDictionary))) {
+                result.LOpIsDict = true;
+                result.DictKey = p;
+                result.LOp = opLeft;
 
                 var dictKey = Expression.Constant(p);
-
-                // Create generic method which is bound with the Call Expression below
-                var containsKeyRuntimeMethod = opLeft.Type.GetMethod("ContainsKey");
-
-                var containsKeyCall = Expression.Call(opLeft, containsKeyRuntimeMethod, dictKey);
-                //var preCheckLambda = Expression.Lambda(containsKeyCall, false, new ParameterExpression[] { opLeft, dictKey });
-                result.AddNewPreCheck(Expression.Lambda<Func<T,bool>>(containsKeyCall, false, Expression.Parameter(opLeft.Type, "x")));
 
                 opLeft = Expression.Property(opLeft, "Item", dictKey);
 
@@ -460,6 +485,14 @@ public abstract class ExpressionGeneratorBase : ExpressionGenerator {
         if (isNullableValueType)
         {
             comparison = AddNotNullCheck<T>(opLeft, comparison);
+        }
+
+        // When the left hand side of the comparision implements IDictionary we need to add a ContainsKey
+        // method call to assert there's a value to compare against before actually retrieving it by name.
+        // A missing key evaluates to false.
+        // TODO: use ~ operator to return true for a comparison predicate where a key is missing.
+        if (resolvedMember.LOpIsDict) {
+            comparison = AddContainsKeyCheck<T>(resolvedMember.LOp, resolvedMember.DictKey, (Expression<Func<T, bool>> )comparison);
         }
 
         // The value may have the right type and should just be returned.
