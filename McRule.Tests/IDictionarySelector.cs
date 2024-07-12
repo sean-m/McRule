@@ -6,6 +6,7 @@ using System.Text;
 using System.Threading.Tasks;
 
 using static McRule.Tests.TestPolicies;
+using static SMM.ConsoleHelpers;
 
 namespace McRule.Tests {
     public class IDictionarySelector {
@@ -111,6 +112,21 @@ namespace McRule.Tests {
 
             int filteredCount = filteredContexts.Count();
             Assert.AreEqual(filteredCount, 2);
+        }
+
+        [Test]
+        public void CanSelectMemberOfDictionaryValue() {
+            var lambda = fourLetterFolks.GetPredicateExpression<SomeContext>();
+
+            var filter = lambda.Compile();
+            var localContext = SomeContexts;
+            var filteredContexts = localContext.Where(filter);
+
+            Assert.NotNull(filteredContexts);
+
+            var manualFilter = localContext.Where(x => x.Context["GivenName"]?.Length == 4);
+            Assert.AreEqual(2, manualFilter.Count());
+            Assert.AreEqual(filteredContexts.Count(), manualFilter.Count());
         }
     }
 }

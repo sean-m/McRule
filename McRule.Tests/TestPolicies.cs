@@ -127,6 +127,14 @@ namespace McRule.Tests {
             RuleOperator = RuleOperator.And
         };
 
+        public static ExpressionPolicy fourLetterFolks = new ExpressionPolicy {
+            Rules = new List<ExpressionRule>
+            {
+                ("SomeContext", "Context.GivenName.Length", "4").ToFilterRule(), // Same rule but with nested selector
+            },
+            RuleOperator = RuleOperator.And
+        };
+
         #endregion
     }
 }
