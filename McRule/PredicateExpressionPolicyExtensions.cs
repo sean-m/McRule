@@ -320,6 +320,8 @@ public abstract class ExpressionGeneratorBase : ExpressionGenerator {
         internal Expression LOp { get; set; }
         internal string DictKey { get; set;  }
 
+        internal bool IfNull { get; set; } = false;
+
         internal void AddNewPreCheck(Expression<Func<T, bool>> lambda) {
             PreChecks.Add(lambda);
         }
@@ -333,13 +335,17 @@ public abstract class ExpressionGeneratorBase : ExpressionGenerator {
         }
     }
 
+
+
     private MemberResolveResult<T> GetMemberByNameForType<T>(string propertyName, ParameterExpression parameter) {
 
         var result = new MemberResolveResult<T>();
 
         Expression opLeft = parameter;
 
-        foreach (string p in propertyName.Split(".")) {
+
+        foreach (var token in ParsePropertyString(propertyName)) {
+            var p = token.Value;
             result.LOpIsDict = false;
 
             if (opLeft.Type.GetInterfaces().Contains(typeof(IDictionary))) {
@@ -360,6 +366,52 @@ public abstract class ExpressionGeneratorBase : ExpressionGenerator {
         return result;
     }
 
+
+    internal class PathToken {
+        public PathToken() {
+
+        }
+        public string Value { get; set; }
+        public bool ExplicitNullCheck { get; set; } = false;
+    }
+
+    // TODO break out property selector parsing from comparison creation. Need something that will recursively parse the provided property path and generate a lambda which is fed to the final predicate.
+    private static IEnumerable<PathToken> ParsePropertyString(string Path) {
+        var sb = new System.Text.StringBuilder();
+        bool doNullCheck = false;
+        bool controlChar = false;
+        char lastChar = '\0';
+
+
+        foreach (char c in Path.Trim()) {
+
+            controlChar = (c == '.' || c == '?');
+
+            if (c == '.') {
+                if (lastChar == '?') {
+                    doNullCheck = true;
+                }
+
+                var result = new PathToken() {
+                    Value = sb.ToString(),
+                    ExplicitNullCheck = doNullCheck
+                };
+                doNullCheck = false;
+                sb.Clear();
+                yield return result;
+            }
+
+            if (!controlChar) { sb.Append(c); }
+
+            lastChar = c;
+        }
+
+        var endResult = new PathToken();
+        endResult.Value = sb.ToString();
+        endResult.ExplicitNullCheck = doNullCheck;
+
+        yield return endResult;
+    }
 
     /// <summary>
     /// Dynamically build an expression suitable for filtering in a Where clause
