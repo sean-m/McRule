@@ -343,22 +343,42 @@ public abstract class ExpressionGeneratorBase : ExpressionGenerator {
 
         Expression opLeft = parameter;
 
-
-        foreach (var token in ParsePropertyString(propertyName)) {
-            var p = token.Value;
-            result.LOpIsDict = false;
-
+        // Test if the property name is Uri encoded. When inspecting identity claims, some of them are identified
+        // with an http uri to a published schema, think SAML 2.0. So what you'd expect to be a claim name of "role"
+        // is actually "http://schemas.microsoft.com/ws/2008/06/identity/claims/role". In that case, we should support
+        // inspecting for claims but only when provided as part of a dictionary (a Uri encoded string isn't really a valid
+        // property name in .net anyhow).
+        Uri uriParam = null;
+        var isUri = Uri.TryCreate(propertyName, UriKind.Absolute, out uriParam);
+        if (isUri) {
             if (opLeft.Type.GetInterfaces().Contains(typeof(IDictionary))) {
                 result.LOpIsDict = true;
-                result.DictKey = p;
+                result.DictKey = propertyName;
                 result.LOp = opLeft;
 
-                var dictKey = Expression.Constant(p);
+                var dictKey = Expression.Constant(propertyName);
 
                 opLeft = Expression.Property(opLeft, "Item", dictKey);
-
             } else {
-                opLeft = Expression.PropertyOrField(opLeft, p);
+                throw new ExpressionGeneratorException("Uri encoded property names are only valid for dictionary objects. Member property dictionaries are not supported.");
+            }
+        } else {
+            foreach (var token in ParsePropertyString(propertyName)) {
+                var p = token.Value;
+                result.LOpIsDict = false;
+
+                if (opLeft.Type.GetInterfaces().Contains(typeof(IDictionary))) {
+                    result.LOpIsDict = true;
+                    result.DictKey = p;
+                    result.LOp = opLeft;
+
+                    var dictKey = Expression.Constant(p);
+
+                    opLeft = Expression.Property(opLeft, "Item", dictKey);
+
+                } else {
+                    opLeft = Expression.PropertyOrField(opLeft, p);
+                }
             }
         }
         result.Member = opLeft;

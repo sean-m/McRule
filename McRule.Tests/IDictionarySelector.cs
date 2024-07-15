@@ -70,14 +70,18 @@ namespace McRule.Tests {
         public List<ContextStringListDictionary> lists = new List<ContextStringListDictionary> {
             new ContextStringListDictionary {
                 { "role", new [] { "User", "Admin" } },
+                {@"http://schemas.microsoft.com/ws/2008/06/identity/claims/role", new [] { "Admin" } }
             },
             new ContextStringListDictionary {
                 { "role", new [] { "User", "Visitor", "Guest" } },
+                {@"http://schemas.microsoft.com/ws/2008/06/identity/claims/role", new [] { "User", "Visitor", "Guest" }}
             },
             new ContextStringListDictionary {
                 { "role", new [] { "ServiveAccount", "Admin" } },
+                {@"http://schemas.microsoft.com/ws/2008/06/identity/claims/role", new [] { "ServiveAccount", "Admin" } },
             }
         };
+
 
         [SetUp] public void SetUp() {
 
@@ -89,6 +93,31 @@ namespace McRule.Tests {
                 Rules = new List<ExpressionRule>
                 {
                     ("ContextStringListDictionary", "role", "User").ToFilterRule(), // Same rule but with nested selector
+                },
+                RuleOperator = RuleOperator.And
+            }.GetPredicateExpression<ContextStringListDictionary>();
+
+            var filter = lambda.Compile();
+
+            Assert.IsNotNull(filter);
+
+            var filtered = lists.Where(filter).ToList();
+            Assert.AreEqual(2, filtered.Count);
+        }
+
+        [Test]
+        public void DictionaryKeyIsUriForTokenClaim() {
+            // This test covers the use case outlined in this comment from the source:
+            // //  Test if the property name is Uri encoded. When inspecting identity claims, some of them are identified
+            // // with an http uri to a published schema, think SAML 2.0. So what you'd expect to be a claim name of "role"
+            // // is actually "http://schemas.microsoft.com/ws/2008/06/identity/claims/role". In that case, we should support
+            // // inspecting for claims but only when provided as part of a dictionary (a Uri encoded string isn't really a valid
+            // // property name in .net anyhow).
+            // // PredicateExpressionPolicyExtensions.cs  Sean McArdle, 07/2024
+            var lambda = new ExpressionPolicy {
+                Rules = new List<ExpressionRule>
+                {
+                    ("ContextStringListDictionary", "http://schemas.microsoft.com/ws/2008/06/identity/claims/role", "Admin").ToFilterRule(), // Same rule but with nested selector
                 },
                 RuleOperator = RuleOperator.And
             }.GetPredicateExpression<ContextStringListDictionary>();
