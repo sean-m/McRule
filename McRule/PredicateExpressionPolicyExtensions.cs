@@ -114,8 +114,8 @@ public static partial class PredicateExpressionPolicyExtensions
         // Bind to the property by name and make the constant value
         // we'll be passing into the Contains() call
         var parameter = Expression.Parameter(typeof(T), "x");
-        Expression opLeft = parameter;
-        foreach (string p in property.Split(".")) opLeft = Expression.PropertyOrField(opLeft, p);
+        var resolvedMember = ExpressionGeneratorBase.GetMemberByNameForType<T>(property, parameter);
+        Expression opLeft = resolvedMember.Member;
 
         var opRight = Expression.Constant(value);
 
@@ -311,7 +311,7 @@ public abstract class ExpressionGeneratorBase : ExpressionGenerator {
     }
 
 
-    private class MemberResolveResult<T> {
+    internal class MemberResolveResult<T> {
         internal List<Expression<Func<T, bool>>> PreChecks { get; set; } = new List<Expression<Func<T, bool>>>();
 
         internal Expression Member { get; set; }
@@ -337,7 +337,7 @@ public abstract class ExpressionGeneratorBase : ExpressionGenerator {
 
 
 
-    private MemberResolveResult<T> GetMemberByNameForType<T>(string propertyName, ParameterExpression parameter) {
+    internal static MemberResolveResult<T> GetMemberByNameForType<T>(string propertyName, ParameterExpression parameter) {
 
         var result = new MemberResolveResult<T>();
 

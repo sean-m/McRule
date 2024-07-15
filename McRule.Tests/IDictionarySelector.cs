@@ -66,10 +66,40 @@ namespace McRule.Tests {
             }
         };
 
+        public class ContextStringListDictionary : Dictionary<string, string[]> { }
+        public List<ContextStringListDictionary> lists = new List<ContextStringListDictionary> {
+            new ContextStringListDictionary {
+                { "role", new [] { "User", "Admin" } },
+            },
+            new ContextStringListDictionary {
+                { "role", new [] { "User", "Visitor", "Guest" } },
+            },
+            new ContextStringListDictionary {
+                { "role", new [] { "ServiveAccount", "Admin" } },
+            }
+        };
+
         [SetUp] public void SetUp() {
 
         }
 
+        [Test]
+        public void InheritedDictionaryOfListsTest() {
+            var lambda = new ExpressionPolicy {
+                Rules = new List<ExpressionRule>
+                {
+                    ("ContextStringListDictionary", "role", "User").ToFilterRule(), // Same rule but with nested selector
+                },
+                RuleOperator = RuleOperator.And
+            }.GetPredicateExpression<ContextStringListDictionary>();
+
+            var filter = lambda.Compile();
+
+            Assert.IsNotNull(filter);
+
+            var filtered = lists.Where(filter).ToList();
+            Assert.AreEqual(2, filtered.Count);
+        }
 
         [Test]
         public void CanSelectDictionaryValuesByKey() {
