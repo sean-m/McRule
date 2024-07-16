@@ -109,7 +109,19 @@ public static partial class PredicateExpressionPolicyExtensions
         typeof(UInt16?), typeof(UInt32?), typeof(UInt64?)
     };
 
-    internal static Expression<Func<T, bool>> GetArrayContainsExpression<T>(string property, object value)
+    public class StringCompare : IEqualityComparer<string> {
+        public StringComparison Comparison { get; set; } = StringComparison.CurrentCulture;
+
+        public bool Equals(string x, string y) {
+            return x.Equals(y, Comparison);
+        }
+
+        public int GetHashCode(string obj) {
+            return obj.GetHashCode();
+        }
+    }
+
+    internal static Expression<Func<T, bool>> GetArrayContainsExpression<T>(string property, object value, bool ignoreCase=false)
     {
         // Bind to the property by name and make the constant value
         // we'll be passing into the Contains() call
@@ -120,13 +132,34 @@ public static partial class PredicateExpressionPolicyExtensions
         var opRight = Expression.Constant(value);
 
         // Create generic method which is bound with the Call Expression below
-        var arrContainsRuntimeMethod = typeof(Enumerable).GetMethods()
+        MethodInfo? arrContainsRuntimeMethod = null;
+
+        arrContainsRuntimeMethod = typeof(Enumerable).GetMethods()
             .Where(x => x.Name == "Contains")
             .Single(x => x.GetParameters().Length == 2)
             .MakeGenericMethod(value.GetType());
 
+        // Setup calls to: StartsWith, EndsWith, Contains, or Equals,
+        // conditionally using character case neutral comparision.
+        List<Expression> expressionArgs = new List<Expression>() { opLeft, Expression.Constant(value) };
+
+
+        if (null != opLeft.Type.GetInterface(typeof(IEnumerable).Name) && opLeft.Type.GetElementType() == typeof(string) && ignoreCase) {
+            arrContainsRuntimeMethod = typeof(Enumerable).GetMethods()
+            .Where(x => x.Name == "Contains")
+            .Single(x => x.GetParameters().Length == 3)
+            .MakeGenericMethod(value.GetType());
+
+            var strCompare = new StringCompare();
+            if (ignoreCase) {
+                strCompare.Comparison = StringComparison.CurrentCultureIgnoreCase;
+            }
+            expressionArgs.Add(Expression.Constant(strCompare));
+        }
+
+
         //LambdaExpression
-        var containsCall = Expression.Call(arrContainsRuntimeMethod, opLeft, opRight);
+        var containsCall = Expression.Call(arrContainsRuntimeMethod, expressionArgs);
 
         var finalExpression = AddNotNullCheck<T>(opLeft, containsCall);
 
@@ -543,7 +576,30 @@ public abstract class ExpressionGeneratorBase : ExpressionGenerator {
         }
         else if (hasCollection == typeof(ICollection))
         {
-            return GetArrayContainsExpression<T>(property, value);
+            // TODO refactor this all. There's a ton of duplicated stuff and the method may just be too big.
+            // If a string match begins with !, we negate the result.
+            var negateResult = false;
+            if (value.StartsWith("!")) {
+                negateResult = true;
+                value = value.TrimStart('!');
+            }
+
+            // String comparisons which are prefixed with '~' will be evaluated ignoring case.
+            // Note: when expression trees are used outside .net, such as with EF to SQL Server,
+            // default case sensitivity for that environment may apply implicitly and counter to
+            // filter policy intent.
+            bool ignoreCase = false;
+            if (value.StartsWith('~')) {
+                ignoreCase = true;
+                value = value.TrimStart('~');
+            }
+
+            var arrResult = GetArrayContainsExpression<T>(property, value, ignoreCase);
+
+            if (negateResult) {
+                arrResult = Negate<T>((Expression<Func<T, bool>>)arrResult);
+            }
+            return arrResult;
         }
         else
         {
