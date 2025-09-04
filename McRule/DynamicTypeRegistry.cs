@@ -88,7 +88,7 @@ public class DynamicTypeRegistry
 		public Type buildForType {get; set;}
 
 		public Func<T,T> GetDynamicSelector<T>() {
-			return DynamicSelector<T>(properties);
+			return DynamicSelector<T>(properties).Compile();
 		}
 	}
 
