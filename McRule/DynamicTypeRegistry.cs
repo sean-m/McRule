@@ -1,4 +1,5 @@
 
+using System.Linq.Dynamic.Core;
 using System.Linq.Expressions;
 using System.Reflection;
 using System.Reflection.Emit;
@@ -68,6 +69,73 @@ public class DynamicTypeRegistry
 
         var initializedObject = Expression.MemberInit(constructor, bindings);
         var lambda = Expression.Lambda<Func<T, T>>(initializedObject, param);
+        return lambda;
+    }
+
+    /// <summary>
+    /// This method builds an anonymous type selector (Func<T,object>) expression for type T
+	/// that can be used to select a subset of properties from T into an anonymous type.
+	/// The expression is exactly the same as this Linq expression:
+	/// x => new { Prop1 = x.Prop1, Prop2 = x.Prop2, ... }
+    /// </summary>
+    /// <typeparam name="T"></typeparam>
+    /// <param name="properties">List of property names.</param>
+    /// <returns>Expression</returns>
+    /// <exception cref="Exception">Property name matches are case sensitive. An exception is thrown if no matches are found.</exception>
+    public static Expression<Func<T, object>> BuildAnonymousSelector<T>(params string[] properties)
+    {
+        var param = Expression.Parameter(typeof(T), "x");
+
+        // property initializers from list of property names
+        var dynamicProps = properties.Select(p => p.Trim())
+            .Select(x => {
+                var sourceProp = typeof(T).GetProperty(x);
+                if (sourceProp == null) return null;
+
+                return new DynamicProperty(sourceProp.Name, sourceProp.PropertyType);
+            }).Where(x => x != null)
+            ?.ToList();
+
+		if (dynamicProps == null || dynamicProps.Count == 0) {
+			throw new Exception($"No valid properties were specified to build the anonymous type. Supplied properties: {String.Join(", ", properties)}");
+        }
+
+        var returnType = DynamicClassFactory.CreateType(dynamicProps, false);
+        var constructor = Expression.New(returnType);
+
+        var bindings = dynamicProps.Select(p => Expression.Bind(returnType.GetProperty(p.Name), Expression.Property(param, p.Name)));
+        var initializedObject = Expression.MemberInit(constructor, bindings);
+        var lambda = Expression.Lambda<Func<T, object>>(initializedObject, param);
+        return lambda;
+    }
+
+    /// <summary>
+    /// This method builds a transmutation selector (Func<T1,T2>) expression that copies all
+	/// properties with matching names from T1 to T2. The resulting expression can be compiled
+	/// and used inside of a Linq Select() call to convert from one type to another.
+    /// </summary>
+    /// <typeparam name="T1"></typeparam>
+    /// <typeparam name="T2"></typeparam>
+    /// <returns></returns>
+    public static Expression<Func<T1, T2>> Transmute<T1, T2>()
+    {
+        var param = Expression.Parameter(typeof(T1), "x");
+
+        var returnType = typeof(T2);
+        var constructor = Expression.New(returnType);
+
+        // property initializers from list of property names
+        var sourceProps = typeof(T1).GetProperties()
+            .Select(x => {
+				var sourceProp = x;
+
+                return new DynamicProperty(sourceProp.Name, sourceProp.PropertyType);
+            }).Where(x => returnType.GetProperty(x.Name) != null)
+            .ToList();
+
+        var bindings = sourceProps.Select(p => Expression.Bind(returnType.GetProperty(p.Name), Expression.Property(param, p.Name)));
+        var initializedObject = Expression.MemberInit(constructor, bindings);
+        var lambda = Expression.Lambda<Func<T1, T2>>(initializedObject, param);
         return lambda;
     }
 
